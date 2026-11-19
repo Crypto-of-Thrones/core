@@ -1,5 +1,5 @@
 {
-  "rules": "b872f2b96dba716f794f8ce7fa0f59fe6ab55f72",
+  "rules": "fef6dbec0e8139d785dfccdd0df886e5e7ef85d3",
   "files": {
     ".editorconfig": "fa675782af8ac00e6c46686ade80171d88200f686d13b6743111d810bac99256",
     ".gitattributes": "c9e76637aec9b8d72ca4050d231b95b660247077c48cd1bb98cff60146f9f63f",
@@ -13,7 +13,7 @@
     ".github/dependabot.yml": "fe94c642dc64de895896fe9ea7909428080ddb085a0fd4b6bbf6f5bdbbd88b43",
     ".github/workflows/guard.yml": "12716f6e7feb3a7bc12b2ac29f67934e84b02760ad9a54c27e62d6eb786f9e43",
     ".gitignore": "39fa5f30dd673e39ad65a98d392c853312ae3d478f54440c8f9a0ef5b5458005",
-    "CHANGELOG.md": "437999fe6f65d1cd5ff3f20b968ac185be54db8ee95618464b1d600397e9f59c",
+    "CHANGELOG.md": "c9ec07b107f6d05517d9269bef9df778cfc6775587d6be14644f51d310bd3d1b",
     "CODE_OF_CONDUCT.md": "60a8fcfe440a3551fc38b6798e3e8ead9fe7395406d58d30b3c53f2c07d65f40",
     "CONTRIBUTING.md": "8b2f2cc670d9e8be00a72179d7a1d7016375720b731ad6acbad11970edf9f0f0",
     "LICENSE": "6558d77ec0ba557b33a18a64926dabb16c005101ad34e799ca22b88a621eefa2",
@@ -21,6 +21,7 @@
     "SECURITY.md": "8457033ac3027ce121c4f9e0a34f601ee694ed3dab99a1e8c58324b76c17d12c",
     "docs/releases/v0.1.0.md": "dda702ecfacb6f66fb095f0f736237d072efc2177d4591d606b075f567eb7c18",
     "docs/releases/v0.1.1.md": "ff5f4a96f36a9beb8783e121ea7d1f2c19d8fdd633864694f0653bc596cc1463",
+    "docs/releases/v0.1.2.md": "bf07dd6f6af49908de697169c4fe5f52d110f6b57a7d1432c9ff81a1cf10bee8",
     "programs/.gitignore": "0e1f7fc926f36ce56f48f80148076f9e92373f5c12c9100a7280210eba5d9234",
     "programs/Anchor.toml": "591e28cb167358fa14a82ed14ab73404d8e7c55d3fa86b72f346f394cfa85627",
     "programs/Cargo.lock": "e8736fa498cd1fc8683086450d54f434a1f1a396a2a8c7658aaf5613ee8d04d4",
@@ -56,7 +57,7 @@
     "tools/guard/lib.mjs": "904528935aded1f67831719d843dff89f6f02cdedefb579848fccf9d1a4277d4",
     "tools/replay-hunt-test.mjs": "271ddbe9445109acd9944498973ca8d530348d7d7dbc127216485763e6014280",
     "tools/replay-hunt.mjs": "224f476833b8b104e405cd02d4985d12953be78648d152277c77c41c6cb90271",
-    "tools/verify/verify.mjs": "6eaa0b903c6226c90daa76e4e04694c15a19c7d3b681ff67b09ca5c97ede0ed5",
+    "tools/verify/verify.mjs": "59ed6c9df53bd53a06ddac4b1aa02a6cd6f7cc920880a5c85aaa9a9d896e9edf",
     "web/js/arenamask.js": "2fc014d966b2f597fd27fcc779129dc91719781a5eb1d405ce1eeb4419627e83",
     "web/js/balance.js": "b0b309ad84bd89cb62388522e84a3ad8602325a89045105b7ddabe1e514299ec",
     "web/js/boxrules.js": "191c7efa412ef3ada22cd318f821b6a9f4136335c14a0d7b93a032c94d346465",
@@ -72,7 +73,7 @@
     "web/js/homestead.js": "a8b53762994c2edf40871660998297a48dd8581936f414c2916942e746100474",
     "web/js/horses.js": "13844b8bf9ec5fe65b816e4a805bc93854dcc4a2e89b5b012661c83ea324d69a",
     "web/js/hostbase.js": "cb26d63a03322d5326194693ff9406bb2dcb0b38fc10a19eec1ed9f8e2c7de5e",
-    "web/js/hunt.js": "581419972018f3d69300504cf450d1d147812688c09a9411c06096602a9c6867",
+    "web/js/hunt.js": "354c73b5189bd59fa8c4f10bfd014385ecc40a5eb325d65f23d62b8f48894f12",
     "web/js/huntengine.js": "ad79d018238b9172de3dbfaa361a661984e865e3957f3278e2da0b5b7655068c",
     "web/js/huntsim.js": "0973d2eb1197ac4ead974c64388c3879cce9f82d9326edc3221b1da22104598a",
     "web/js/i18nsafe.js": "e1c0eda9b06b3e6e5676a3c971738a8122ab33a005bb0a3f769b55e0b4fc6669",
@@ -80,7 +81,7 @@
     "web/js/joust.js": "33c4eed8801e85ac0077bfb6ec85c0ab61602b2d82eb3e4eaa20532bffeccd17",
     "web/js/ladderrules.js": "7a3bb19cb5e9974c3a8ee7e752e97d10391ae52d55dce0e2d7ea0809ddff70fb",
     "web/js/launchplan.js": "a136c091b8873d81907fe4ad519d027d3f7300bc797db533af26975c504ada60",
-    "web/js/ledgerverify.js": "8ba92f4bb5a27ec3ffd44a9de9cc78dbf124499bb2df966f21fd8df4dd3519d7",
+    "web/js/ledgerverify.js": "d4af9f37ebfb730b7153ca400064711fdd5fe9fa17f98c494cbfaec424cebe7a",
     "web/js/lottery.js": "25993d8770df35dfaca21d4985dc9bfcc29639a6ebf1ed7eac4cba373f23768e",
     "web/js/net.js": "bb5e8bdfccbf9ab88978eb3e6d476772ca4603cccc155acd0aed8ac1cc6d5823",
     "web/js/passrules.js": "2de2562e60225629bf3edc6f64fb4997422db3e905a497704c39cfd8cb8465c8",
@@ -101,5 +102,5 @@
     "web/vendor/noble-bls/VENDORED.md": "0cf70600d9e30bf0ef372a4df0f99a4d5365df904efe097ddcab1cab9f8eb3f2",
     "web/vendor/noble-bls/bls12-381.js": "d02a3b49a04897371ca45a931dcaa2b1163ac0c7246e1b1caf8ec926de778f92"
   },
-  "tree": "a6d4f07add2c261a21076187b5acc15c2797149e270c31ebd439e112f447b5a5"
+  "tree": "5b1fab701e9c96692ea4cb5239fccc0569678b9b3a28a140c52511f6eeae4b06"
 }

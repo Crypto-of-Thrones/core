@@ -537,6 +537,7 @@ export async function verifyEntry(e, entries, opts = {}) {
   }
   if (d.stage === 'act' && ownRules(d) && priceOk(e) === false) return bad('price');
   if (!d.draw) {
+    if (d.v === 2 && d.stage === 'reveal' && Object.hasOwn(RULES, e.kind)) return bad('draw');
     const st = Object.hasOwn(STATIC_RULES, e.kind) && d.v === 2 && d.refs ? STATIC_RULES[e.kind].check(d.refs) : null;
     if (st === false) return bad('rule');
     if (st === true) steps.rule = 'ok';
@@ -626,12 +627,13 @@ export async function verifyMerkleProof(leafHex, path, root) {
 
 export const memoText = (env, p) => `COT-LEDGER v1 ${env} ${p.epoch} ${p.root} ${p.leafCount} ${p.hash}`;
 
-export async function checkProof(p, entries, seq) {
+export async function checkProof(p, entries, seq, acct = null) {
   const leaf = p?.leaf;
   if (!leaf || p.seq !== seq) return { status: 'bad', why: 'proof' };
   const out = { epoch: p.epoch, root: p.root, hash: p.hash, leafCount: p.leafCount, prevHash: p.prevHash, anchor: p.anchor || null };
   if (!p.closed) return { status: 'wait', ...out };
   const bad = (why) => ({ status: 'bad', why, ...out });
+  if (acct && leaf.acct !== acct) return bad('acct');
   if (seq < leaf.seqFrom || seq > leaf.seqTo) return bad('range');
   const run = entries.filter((x) => x.seq >= seq && x.seq <= leaf.seqTo);
   if (run.length !== leaf.seqTo - seq + 1) return bad('range');
@@ -652,7 +654,7 @@ export function proofChecker(acct, getProof) {
       if (!p || p.error) return { status: 'wait' };
       if (p.closed && p.leaf) leaves.push(p);
     }
-    return checkProof({ ...p, seq: e.seq }, entries, e.seq);
+    return checkProof({ ...p, seq: e.seq }, entries, e.seq, acct);
   };
 }
 

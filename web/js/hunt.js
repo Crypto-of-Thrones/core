@@ -869,13 +869,20 @@ export function createHunt(opts = {}) {
     for (const u of left) u.post = [u.x, u.y];
   }
 
-  let areaOwner = null, areaUnits = null, areaKey = '';
+  let areaOwner = null, areaUnits = [], areaPosts = [];
+  function areaStale() {
+    if (areaUnits.length !== units.length) return true;
+    for (let i = 0; i < units.length; i++) {
+      const o = units[i], p = o.post;
+      if (o !== areaUnits[i] || (p ? p[0] : -1) !== areaPosts[2 * i] || (p ? p[1] : -1) !== areaPosts[2 * i + 1]) return true;
+    }
+    return false;
+  }
   function areaOf(u, x, y, pass = false) {
     if (!u.post || units.length < 2) return true;
-    const key = units.map((o) => (o.post ? `${o.post[0]},${o.post[1]}` : '-')).join(';');
-    if (key !== areaKey) {
-      areaKey = key;
+    if (areaStale()) {
       areaUnits = units.slice();
+      areaPosts = areaUnits.flatMap((o) => (o.post ? [o.post[0], o.post[1]] : [-1, -1]));
       areaOwner = new Int16Array(W * H).fill(-1);
       for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
         let best = -1, bg = Infinity, next = Infinity;

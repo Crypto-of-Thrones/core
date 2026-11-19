@@ -43,7 +43,11 @@ export function parseArgs(argv) {
 export function historyProblem(o, entries, head) {
   if (!entries.length) return { why: 'no entries' };
   if (!o.limited && !o.file && entries[0].seq !== 1) return { why: `the history starts at seq ${entries[0].seq}, not at seq 1 (cut)` };
-  if (head && (entries.at(-1).seq !== head.seq || entries.at(-1).hash !== head.hash)) return { why: `the history ends at seq ${entries.at(-1).seq}, the server head is seq ${head.seq}` };
+  if (head) {
+    const at = entries.find((x) => x.seq === head.seq);
+    if (entries.at(-1).seq < head.seq) return { why: `the history ends at seq ${entries.at(-1).seq}, the server head is seq ${head.seq}` };
+    if (!at || at.hash !== head.hash) return { why: `seq ${head.seq} does not match the server head hash` };
+  }
   if (o.known) {
     const k = entries.find((x) => x.seq === o.known.seq);
     if (!k && (o.known.seq >= entries[0].seq || !o.limited)) return { why: `known entry seq ${o.known.seq} is gone (cut)` };
@@ -96,7 +100,7 @@ export async function download(o, { fetchFn, now }) {
       if (!Number.isSafeInteger(r?.next) || r.next <= after) break;
       after = r.next;
     }
-    if (bySeq.has(1) || (top && bySeq.size >= top)) break;
+    if (bySeq.has(1) || (top && [...bySeq.keys()].filter((s) => s <= top).length >= top)) break;
   }
   return { entries: [...bySeq.values()].sort((a, b) => a.seq - b.seq), head: head?.head || null };
 }

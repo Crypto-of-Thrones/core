@@ -6,6 +6,20 @@ All notable changes to this repository are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-19
+
+### Fixed
+
+- The verifier refuses an epoch proof whose leaf belongs to another account, in the command line
+  tool and in the browser check.
+- A drawn reveal that carries no `draw` field now fails instead of skipping the rule replay.
+- The verifier no longer reports a false failure on an active account whose newest entries land
+  while it downloads the days.
+- The hunt client keeps each duel area bound to the right unit when a mercenary is replaced in the
+  same post, so a resumed hunt matches a live one.
+
+Release notes: [docs/releases/v0.1.2.md](docs/releases/v0.1.2.md).
+
 ## [0.1.1] - 2026-11-19
 
 ### Added
@@ -42,6 +56,7 @@ Release notes: [docs/releases/v0.1.1.md](docs/releases/v0.1.1.md).
 
 Release notes: [docs/releases/v0.1.0.md](docs/releases/v0.1.0.md).
 
-[Unreleased]: https://github.com/Crypto-of-Thrones/core/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Crypto-of-Thrones/core/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.0
