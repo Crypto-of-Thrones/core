@@ -33,7 +33,7 @@ solana-security-txt = "1.1.3"
 solana-sha256-hasher = { version = "3.1.0", features = ["sha2"] }
 
 [dev-dependencies]
-ed25519-dalek = { version = "2", features = ["rand_core"] }
+ed25519-dalek = { version = "3", features = ["rand_core"] }
 rand = "0.8"
 litesvm = { version = "0.18.2", features = ["precompiles"] }
 solana-clock = "~3.2.0"
