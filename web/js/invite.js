@@ -53,7 +53,7 @@ function normalizeVassal(v) {
     base: num(v.base),
     rate: num(v.rate),
     squire: !!v.squire,
-    block: v.block === 'device' ? 'device' : '',
+    block: v.block === 'device' || v.block === 'denied' ? v.block : '',
     seen: num(v.seen),
     week: Number.isInteger(v.week) ? v.week : -1,
     raw: num(v.raw),

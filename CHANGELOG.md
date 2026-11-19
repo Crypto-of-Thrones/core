@@ -6,6 +6,23 @@ All notable changes to this repository are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-19
+
+### Changed
+
+- `spl-token-2022-interface` 4.0.0 in the on-chain program (still on the Solana 3.x crates that
+  Anchor 1.2.2 uses). The instruction interface (IDL) is unchanged.
+- Test dependencies: `ed25519-dalek` 3, `rand` 0.10, `solana-clock` 4 and `solana-instruction` 4.
+- CI: `actions/checkout` 7.0.1, pinned by commit SHA.
+
+### Security
+
+- The three advisories reported for `curve25519-dalek` 3.2.0, `ed25519-dalek` 1.0.1 and `rand`
+  0.7.3 reach only the LiteSVM test harness (`litesvm` 0.18.2, a dev-dependency) and are not
+  linked into the program. They will clear when a `litesvm` release drops them.
+
+Release notes: [docs/releases/v0.1.3.md](docs/releases/v0.1.3.md).
+
 ## [0.1.2] - 2026-11-19
 
 ### Fixed
@@ -56,7 +73,8 @@ Release notes: [docs/releases/v0.1.1.md](docs/releases/v0.1.1.md).
 
 Release notes: [docs/releases/v0.1.0.md](docs/releases/v0.1.0.md).
 
-[Unreleased]: https://github.com/Crypto-of-Thrones/core/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/Crypto-of-Thrones/core/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.3
 [0.1.2]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.0

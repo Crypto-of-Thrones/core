@@ -225,7 +225,7 @@ mod tests {
     }
 
     fn setup() -> (SigningKey, Pubkey, [u8; VOUCHER_MESSAGE_LEN], Instruction) {
-        let signing = SigningKey::generate(&mut rand::rngs::OsRng);
+        let signing = SigningKey::generate(&mut rand::rng());
         let signer = Pubkey::new_from_array(signing.verifying_key().to_bytes());
         let msg = build_message(&crate::ID, &Pubkey::new_unique(), &voucher(1_000, 7, 1_700_000_000));
         let ix = canonical_ix(&signing, &msg);

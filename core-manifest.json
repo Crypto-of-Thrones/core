@@ -1,5 +1,5 @@
 {
-  "rules": "fef6dbec0e8139d785dfccdd0df886e5e7ef85d3",
+  "rules": "aec07ab810e4d1f35d8d6a282175445e9599e589",
   "files": {
     ".editorconfig": "fa675782af8ac00e6c46686ade80171d88200f686d13b6743111d810bac99256",
     ".gitattributes": "c9e76637aec9b8d72ca4050d231b95b660247077c48cd1bb98cff60146f9f63f",
@@ -11,9 +11,9 @@
     ".github/assets/banner.png": "259dfe84c1c7527311a907e2a2af79f1783c8a6c36867e20fba9541e524f8ea6",
     ".github/assets/social-preview.png": "14d247675b1e2f2c09460fd54e859650653cef4bb616d59284f426b5dd2c55f2",
     ".github/dependabot.yml": "fe94c642dc64de895896fe9ea7909428080ddb085a0fd4b6bbf6f5bdbbd88b43",
-    ".github/workflows/guard.yml": "12716f6e7feb3a7bc12b2ac29f67934e84b02760ad9a54c27e62d6eb786f9e43",
+    ".github/workflows/guard.yml": "fe2d05402720f8c4a808cdf879466eed80441dd735119d983666874082ed954a",
     ".gitignore": "39fa5f30dd673e39ad65a98d392c853312ae3d478f54440c8f9a0ef5b5458005",
-    "CHANGELOG.md": "c9ec07b107f6d05517d9269bef9df778cfc6775587d6be14644f51d310bd3d1b",
+    "CHANGELOG.md": "a0503432328a927fa752c451655436f6ea2677b0390c2bf2a1b6b175bdb293a7",
     "CODE_OF_CONDUCT.md": "60a8fcfe440a3551fc38b6798e3e8ead9fe7395406d58d30b3c53f2c07d65f40",
     "CONTRIBUTING.md": "8b2f2cc670d9e8be00a72179d7a1d7016375720b731ad6acbad11970edf9f0f0",
     "LICENSE": "6558d77ec0ba557b33a18a64926dabb16c005101ad34e799ca22b88a621eefa2",
@@ -22,11 +22,12 @@
     "docs/releases/v0.1.0.md": "dda702ecfacb6f66fb095f0f736237d072efc2177d4591d606b075f567eb7c18",
     "docs/releases/v0.1.1.md": "ff5f4a96f36a9beb8783e121ea7d1f2c19d8fdd633864694f0653bc596cc1463",
     "docs/releases/v0.1.2.md": "bf07dd6f6af49908de697169c4fe5f52d110f6b57a7d1432c9ff81a1cf10bee8",
+    "docs/releases/v0.1.3.md": "db33469a2af1e23bf253ed18043f540cacb8a9b888bc00ed51682cfb7d51e5e2",
     "programs/.gitignore": "0e1f7fc926f36ce56f48f80148076f9e92373f5c12c9100a7280210eba5d9234",
     "programs/Anchor.toml": "591e28cb167358fa14a82ed14ab73404d8e7c55d3fa86b72f346f394cfa85627",
-    "programs/Cargo.lock": "e8736fa498cd1fc8683086450d54f434a1f1a396a2a8c7658aaf5613ee8d04d4",
+    "programs/Cargo.lock": "5067c97e5efff501ce2f99737ef116b8e9557cfc01ba296824bdc2a7e6da2c56",
     "programs/Cargo.toml": "a3a0b40d6f0f3c86dd07ff156e02838e1e07a25ad532d99f66e051a08a5dd07a",
-    "programs/cot_core/Cargo.toml": "b600c6261d5bd03410f47645b7fd1e331dc853af249a3bc2d48bd5a75923bc8c",
+    "programs/cot_core/Cargo.toml": "875103fc0da229e59238d93a501ae97ad42529f1263d97d2739e001febc6b25e",
     "programs/cot_core/idl/cot_core.json": "b7a290c843a502bff0c8607f732f6f1ff0c8852f8683f082afa2f43cfe185090",
     "programs/cot_core/src/constants.rs": "1724408981a05ca789259cb31bd234b89f084adbb75260bff57d73e99f33564a",
     "programs/cot_core/src/errors.rs": "e47ca6b002bf15d3a62e835e6860a7065615fe2fcaa31a7dabd73e242ed30af8",
@@ -44,7 +45,7 @@
     "programs/cot_core/src/math.rs": "f2d984d5e1020affbe53dacb238e4a6765da7ad88cedfa67525af3e0d65b95b3",
     "programs/cot_core/src/state.rs": "2fda900e74bb8c6fe423c5cfccc4c4f51294db343f86981bad5bd41975d62dc8",
     "programs/cot_core/src/token_ops.rs": "ea5bc6f641fe97f86b6969cdf409bec1c0a00e288b5e827cb7787c20b80646aa",
-    "programs/cot_core/src/voucher.rs": "69b31333e59124c0bf7d36b8b54d288c06ac6b2c81b64666c521c5467b450d8c",
+    "programs/cot_core/src/voucher.rs": "88f6e6c342f1d88f248f4edddf2e0c8be717007493e5bce495c7fac6829287fa",
     "programs/cot_core/tests/cu.rs": "9031d44d68ef4f9f2c996dd645671db42b3b752c41158c4f0244ee7808620636",
     "programs/cot_core/tests/litesvm_cot_core.rs": "d3f7854f6f22974cc044bc90a55b847cea10103cd07e65dafebe725c0a3792c3",
     "programs/scripts/verifiable-build.sh": "e044e2225a6f4d5a909f3226f1200f085b7deb53dc118f43bc9de3861fe6684e",
@@ -77,7 +78,7 @@
     "web/js/huntengine.js": "ad79d018238b9172de3dbfaa361a661984e865e3957f3278e2da0b5b7655068c",
     "web/js/huntsim.js": "0973d2eb1197ac4ead974c64388c3879cce9f82d9326edc3221b1da22104598a",
     "web/js/i18nsafe.js": "e1c0eda9b06b3e6e5676a3c971738a8122ab33a005bb0a3f769b55e0b4fc6669",
-    "web/js/invite.js": "736c8d02c7dfc4c6d126cbad7b865493469e842387cca02135bc616dbb1833a4",
+    "web/js/invite.js": "aaa05e2000b773c8d7facc836b603d38d5388d14b90ddcf92b9612e593a02927",
     "web/js/joust.js": "33c4eed8801e85ac0077bfb6ec85c0ab61602b2d82eb3e4eaa20532bffeccd17",
     "web/js/ladderrules.js": "7a3bb19cb5e9974c3a8ee7e752e97d10391ae52d55dce0e2d7ea0809ddff70fb",
     "web/js/launchplan.js": "a136c091b8873d81907fe4ad519d027d3f7300bc797db533af26975c504ada60",
@@ -102,5 +103,5 @@
     "web/vendor/noble-bls/VENDORED.md": "0cf70600d9e30bf0ef372a4df0f99a4d5365df904efe097ddcab1cab9f8eb3f2",
     "web/vendor/noble-bls/bls12-381.js": "d02a3b49a04897371ca45a931dcaa2b1163ac0c7246e1b1caf8ec926de778f92"
   },
-  "tree": "5b1fab701e9c96692ea4cb5239fccc0569678b9b3a28a140c52511f6eeae4b06"
+  "tree": "8eac678040f7757f196fd2aba567783714db548bd340e814b684c8bb6abbea72"
 }

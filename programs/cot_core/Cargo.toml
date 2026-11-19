@@ -28,20 +28,20 @@ anchor-lang = { version = "=1.2.2", features = ["init-if-needed"] }
 anchor-spl = { version = "=1.2.2", default-features = false, features = ["token", "token_2022", "token_2022_extensions", "solana-v3"] }
 solana-instructions-sysvar = "3.0.0"
 solana-sdk-ids = "3.1.0"
-spl-token-2022-interface = "2.1.0"
+spl-token-2022-interface = "4.0.0"
 solana-security-txt = "1.1.3"
 solana-sha256-hasher = { version = "3.1.0", features = ["sha2"] }
 
 [dev-dependencies]
-ed25519-dalek = { version = "2", features = ["rand_core"] }
-rand = "0.8"
+ed25519-dalek = { version = "3", features = ["rand_core"] }
+rand = "0.10"
 litesvm = { version = "0.18.2", features = ["precompiles"] }
-solana-clock = "~3.2.0"
+solana-clock = "4.0.0"
 solana-keypair = "3.1.2"
 solana-signer = "3.0.1"
 solana-transaction = "4.1.5"
 solana-message = "4.2.4"
-solana-instruction = "~3.5.0"
+solana-instruction = "4.0.0"
 solana-address = "~2.7.0"
 solana-account = "4.3.0"
 
