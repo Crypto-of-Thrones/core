@@ -26,7 +26,7 @@ test-sbf = []
 [dependencies]
 anchor-lang = { version = "=1.2.2", features = ["init-if-needed"] }
 anchor-spl = { version = "=1.2.2", default-features = false, features = ["token", "token_2022", "token_2022_extensions", "solana-v3"] }
-solana-instructions-sysvar = "3.0.0"
+solana-instructions-sysvar = "4.0.0"
 solana-sdk-ids = "3.1.0"
 spl-token-2022-interface = "4.0.0"
 solana-security-txt = "1.1.3"
