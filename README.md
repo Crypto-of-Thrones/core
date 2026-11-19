@@ -91,11 +91,22 @@ cannot be read). Useful flags:
 | `--rules-ref COMMIT` | The commit of the rule code you are running (see below) |
 | `--json` | Machine-readable output |
 
-Each draw entry names the commit of the rule code that produced it (its `rules` field). By
-default the verifier takes the commit of your checkout (`git rev-parse HEAD`, or none when files
-under `web/js/` have local changes) and replays a draw only when the two commits match; any other
-draw reports `rule=other` and names the commit to check out. `--rules-ref COMMIT` sets the commit
-of the code you run explicitly, and `--rules-ref any` replays every draw with the code you have.
+Each draw entry names the commit of the rule code that produced it (its `rules` field). That
+commit belongs to the game's source repository, which this repository does not share: its history
+starts fresh at each export. So every release records the commit it was exported from in the
+`rules` field of `core-manifest.json`, and the verifier uses that value as the commit of the code
+you run (none when a file under `web/js/` no longer matches the SHA-256 the manifest lists). It
+replays a draw only when the entry's commit and yours match; any other draw reports `rule=other`
+and names its commit. To replay those draws, run the verifier from the release whose
+`core-manifest.json` has that `rules` value, or pass `--rules-ref any` to replay every draw with
+the code you have (a rule changed between the two commits then shows as a failed replay, not as
+fraud by itself). `--rules-ref COMMIT` sets the commit of the code you run explicitly.
+
+A run where every check passed but something is still open ends with `PASS, NOT FINAL` and the
+reason: entries recorded under other rules (their replay was not run), anchors still pending or
+not read on chain, or entries still waiting for a step. With `--json` the same reasons are in the
+`reasons` array (`code` `rules` with the `commits`, `anchors` with `pending` and `unchecked`, or
+`wait`). The exit code is 0 for any pass, final or not.
 
 To build the on-chain program reproducibly (needs Docker and Rust):
 

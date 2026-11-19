@@ -1,4 +1,5 @@
 {
+  "rules": "b872f2b96dba716f794f8ce7fa0f59fe6ab55f72",
   "files": {
     ".editorconfig": "fa675782af8ac00e6c46686ade80171d88200f686d13b6743111d810bac99256",
     ".gitattributes": "c9e76637aec9b8d72ca4050d231b95b660247077c48cd1bb98cff60146f9f63f",
@@ -12,13 +13,14 @@
     ".github/dependabot.yml": "fe94c642dc64de895896fe9ea7909428080ddb085a0fd4b6bbf6f5bdbbd88b43",
     ".github/workflows/guard.yml": "12716f6e7feb3a7bc12b2ac29f67934e84b02760ad9a54c27e62d6eb786f9e43",
     ".gitignore": "39fa5f30dd673e39ad65a98d392c853312ae3d478f54440c8f9a0ef5b5458005",
-    "CHANGELOG.md": "f5fe11eb0002a29b3ca0209c82152f243e95d5a630156433ec2a8e374c1038ac",
+    "CHANGELOG.md": "437999fe6f65d1cd5ff3f20b968ac185be54db8ee95618464b1d600397e9f59c",
     "CODE_OF_CONDUCT.md": "60a8fcfe440a3551fc38b6798e3e8ead9fe7395406d58d30b3c53f2c07d65f40",
     "CONTRIBUTING.md": "8b2f2cc670d9e8be00a72179d7a1d7016375720b731ad6acbad11970edf9f0f0",
     "LICENSE": "6558d77ec0ba557b33a18a64926dabb16c005101ad34e799ca22b88a621eefa2",
-    "README.md": "18168d9969cc4f3866b7181cfed248953ce43e0cbaa1250ede14c8ce3df50f73",
+    "README.md": "fdac018f20d46a98e44c851da07cd6d64a43b39a71228d6ecc304da539c356b9",
     "SECURITY.md": "8457033ac3027ce121c4f9e0a34f601ee694ed3dab99a1e8c58324b76c17d12c",
     "docs/releases/v0.1.0.md": "dda702ecfacb6f66fb095f0f736237d072efc2177d4591d606b075f567eb7c18",
+    "docs/releases/v0.1.1.md": "ff5f4a96f36a9beb8783e121ea7d1f2c19d8fdd633864694f0653bc596cc1463",
     "programs/.gitignore": "0e1f7fc926f36ce56f48f80148076f9e92373f5c12c9100a7280210eba5d9234",
     "programs/Anchor.toml": "591e28cb167358fa14a82ed14ab73404d8e7c55d3fa86b72f346f394cfa85627",
     "programs/Cargo.lock": "e8736fa498cd1fc8683086450d54f434a1f1a396a2a8c7658aaf5613ee8d04d4",
@@ -47,14 +49,14 @@
     "programs/scripts/verifiable-build.sh": "e044e2225a6f4d5a909f3226f1200f085b7deb53dc118f43bc9de3861fe6684e",
     "tools/fixtures/replay-hunt-golden.json": "729bff23e4edd68c4f7f03aa7bac1db8dacede92c7fffee3a23e18a1dc85d397",
     "tools/guard/guard.config.json": "808e3b2bea16affd93f45600a72941acfdad0bb1f58acbc55e5101835463dc9e",
-    "tools/guard/guard.mjs": "3253bf4b644cecb639a3ce4a65ae0c6c60294c24bc469925af135336eec66570",
+    "tools/guard/guard.mjs": "cef630ce424bcc60a5a1fbf11b4fa08a5d5bae5e5e672e0fe163d3d3da4f34de",
     "tools/guard/hooks/commit-msg": "354752687c9fe78404791099b23fb3ee3a9b07032e02693a0964c21c3e15c249",
     "tools/guard/hooks/pre-commit": "8a364bfae681bfb01ceff4f16b4607aef66fc4139702abb5697e725bdfde7922",
     "tools/guard/hooks/pre-push": "83d7de32bb86b9228d9631e6e468396cf44143575b3c6208caa9b6130162ea7e",
     "tools/guard/lib.mjs": "904528935aded1f67831719d843dff89f6f02cdedefb579848fccf9d1a4277d4",
     "tools/replay-hunt-test.mjs": "271ddbe9445109acd9944498973ca8d530348d7d7dbc127216485763e6014280",
     "tools/replay-hunt.mjs": "224f476833b8b104e405cd02d4985d12953be78648d152277c77c41c6cb90271",
-    "tools/verify/verify.mjs": "22cad270edfc7ed8bacc3627800badaabaac2d3b0ed9351c419d0df29737265b",
+    "tools/verify/verify.mjs": "6eaa0b903c6226c90daa76e4e04694c15a19c7d3b681ff67b09ca5c97ede0ed5",
     "web/js/arenamask.js": "2fc014d966b2f597fd27fcc779129dc91719781a5eb1d405ce1eeb4419627e83",
     "web/js/balance.js": "b0b309ad84bd89cb62388522e84a3ad8602325a89045105b7ddabe1e514299ec",
     "web/js/boxrules.js": "191c7efa412ef3ada22cd318f821b6a9f4136335c14a0d7b93a032c94d346465",
@@ -99,5 +101,5 @@
     "web/vendor/noble-bls/VENDORED.md": "0cf70600d9e30bf0ef372a4df0f99a4d5365df904efe097ddcab1cab9f8eb3f2",
     "web/vendor/noble-bls/bls12-381.js": "d02a3b49a04897371ca45a931dcaa2b1163ac0c7246e1b1caf8ec926de778f92"
   },
-  "tree": "1b75a6164759f3c971bbeffd5768828bd06b13cb73e8ec0becf74c6ecf23b111"
+  "tree": "a6d4f07add2c261a21076187b5acc15c2797149e270c31ebd439e112f447b5a5"
 }

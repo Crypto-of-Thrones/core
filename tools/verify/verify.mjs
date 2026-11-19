@@ -2,6 +2,8 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { verifyChain, verifyEntry, proofChecker, anchorChecker, checkAnchor } from '../../web/js/ledgerverify.js';
 import { SERVER_URL, MAINNET, COT_PROGRAM_ID } from '../../web/js/buildprofile.js';
 
@@ -51,6 +53,20 @@ export function historyProblem(o, entries, head) {
 }
 
 export function codeRef(dir = fileURLToPath(new URL('../..', import.meta.url))) {
+  const manifest = path.join(dir, 'core-manifest.json');
+  if (fs.existsSync(manifest)) {
+    try {
+      const m = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+      if (!/^[0-9a-f]{40}$/.test(String(m.rules || ''))) return null;
+      for (const [rel, want] of Object.entries(m.files || {})) {
+        if (!/^(web\/js|server\/src)\//.test(rel)) continue;
+        if (createHash('sha256').update(fs.readFileSync(path.join(dir, rel))).digest('hex') !== want) return null;
+      }
+      return m.rules;
+    } catch {
+      return null;
+    }
+  }
   try {
     const git = (...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     if (git('status', '--porcelain', '--', 'web/js', 'server/src')) return null;
@@ -87,6 +103,26 @@ export async function download(o, { fetchFn, now }) {
 
 const FAIL = new Set(['bad', 'fail']);
 
+export function rulesHint(commit) {
+  return `recorded under rules ${commit}: run the verifier from the core release whose core-manifest.json "rules" is ${commit} to replay this draw, or pass --rules-ref any to replay it with this code`;
+}
+
+export function notFinalReasons(rows) {
+  const n = (label) => rows.filter((x) => x.label === label).length;
+  const reasons = [];
+  const rules = rows.filter((x) => x.label === 'RULES');
+  if (rules.length) reasons.push({ code: 'rules', count: rules.length, commits: [...new Set(rules.map((x) => x.rules))] });
+  if (n('PEND') + n('UNCHECKED')) reasons.push({ code: 'anchors', count: n('PEND') + n('UNCHECKED'), pending: n('PEND'), unchecked: n('UNCHECKED') });
+  if (n('WAIT')) reasons.push({ code: 'wait', count: n('WAIT') });
+  return reasons;
+}
+
+function reasonText(x) {
+  if (x.code === 'rules') return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} recorded under other rules (${x.commits.join(', ')}), rule replay not run: re-check them with the core release of those rules or --rules-ref any`;
+  if (x.code === 'anchors') return `${x.count} ${x.count === 1 ? 'anchor' : 'anchors'} not final (${x.pending} pending, ${x.unchecked} not read on chain)`;
+  return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} still waiting for a check`;
+}
+
 export function rowLabel(r) {
   if (FAIL.has(r.status)) return 'FAIL';
   if (r.status === 'rules') return 'RULES';
@@ -107,14 +143,15 @@ export async function verifyAccount(o, entries, { fetchFn, info, rulesRef = null
     const r = await verifyEntry(e, entries, { info, merkle, anchor, rulesRef }).catch((err) => ({ status: 'fail', why: err.message, steps: {} }));
     const why = (r.why === 'anchor' || r.steps.anchor === 'pending' || r.steps.anchor === 'unchecked' ? `anchor ${r.anchor?.status}: ${r.anchor?.why}` : r.why)
       || (r.merkle?.status === 'bad' ? `merkle: ${r.merkle.why}` : undefined)
-      || (r.rules ? `rules of commit ${r.rules}: git checkout ${r.rules} and run again to replay this draw` : undefined);
+      || (r.rules ? rulesHint(r.rules) : undefined);
     const row = { seq: e.seq, kind: e.kind, status: r.status, why, epoch: r.merkle?.epoch, steps: r.steps, ...(r.rules ? { rules: r.rules } : {}) };
     rows.push({ ...row, label: rowLabel(row) });
   }
   const counts = {};
   for (const x of rows) counts[x.label] = (counts[x.label] || 0) + 1;
   const ok = chain.ok && !history && entries.length > 0 && !rows.some((x) => FAIL.has(x.status));
-  return { ok, final: ok && rows.every((x) => x.label === 'PASS'), chain, history, rows, counts };
+  const final = ok && rows.every((x) => x.label === 'PASS');
+  return { ok, final, reasons: ok && !final ? notFinalReasons(rows) : [], chain, history, rows, counts };
 }
 
 export function report(o, entries, v) {
@@ -126,7 +163,8 @@ export function report(o, entries, v) {
     lines.push(`${r.label} seq ${r.seq} ${r.kind}${r.epoch !== undefined ? ` epoch ${r.epoch}` : ''}  ${steps}${r.why ? `  (${r.why})` : ''}`);
   }
   const tally = Object.entries(v.counts).map(([k, n]) => `${n} ${k}`).join(', ') || 'no entries';
-  lines.push(`${v.ok ? (v.final ? 'PASS' : 'PASS, NOT FINAL (anchors pending or not read on chain)') : 'FAIL'}: ${tally}`);
+  const why = (v.reasons || []).map(reasonText).join('; ');
+  lines.push(`${v.ok ? (v.final ? 'PASS' : `PASS, NOT FINAL (${why || 'not every entry passed'})`) : 'FAIL'}: ${tally}`);
   return lines.join('\n');
 }
 
@@ -150,7 +188,7 @@ export async function main(argv, deps = {}) {
   }
   const rulesRef = o.rulesRef ?? (deps.rulesRef !== undefined ? deps.rulesRef : codeRef());
   const v = await verifyAccount(o, entries, { fetchFn, info: deps.info, rulesRef, now, head });
-  out(o.json ? JSON.stringify({ acct: o.acct, ok: v.ok, final: v.final, chain: v.chain, history: v.history, counts: v.counts, entries: v.rows }, null, 2) : report(o, entries, v));
+  out(o.json ? JSON.stringify({ acct: o.acct, ok: v.ok, final: v.final, reasons: v.reasons, chain: v.chain, history: v.history, counts: v.counts, entries: v.rows }, null, 2) : report(o, entries, v));
   return v.ok ? 0 : 1;
 }
 

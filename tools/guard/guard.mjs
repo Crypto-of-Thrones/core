@@ -48,6 +48,7 @@ const BUSINESS = [
   charClass([[0xc0, 0xff]]),
   /\b(?:margin|markup|pricing strategy|whale|anticheat|backoffice|admin panel|profit)\b/i,
 ];
+const TOOL_HEADERS = [['# This file is automatically @gener', 'ated by Cargo.'].join('')];
 const ALLOWED_COMMENT = [/^\/\/ SPDX-License-Identifier: [\w.-]+$/, /^# SPDX-License-Identifier: [\w.-]+$/];
 
 const DASH = charClass([[0x2013, 0x2014]]);
@@ -149,7 +150,7 @@ export class Guard {
     lines.forEach((line, k) => {
       const at = `${where}:${k + 1}`;
       if (this.denyRe && this.denyRe.test(line.toLowerCase())) this.add('identity', at);
-      if (aiMark(line)) this.add('ai-mark', at);
+      if (aiMark(line) && !TOOL_HEADERS.includes(line.trim())) this.add('ai-mark', at);
       if (LOCAL_PATHS.some((p) => line.includes(p))) this.add('local-path', at);
       if (SECRET_PATTERNS.some((re) => re.test(line))) this.add('secret', at);
       for (const m of line.matchAll(/[1-9A-HJ-NP-Za-km-z]{85,90}/g)) if (base58Length(m[0]) === 64) this.add('secret', `${at} (64-byte base58 key)`);
