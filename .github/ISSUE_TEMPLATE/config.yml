@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability privately
+    url: https://github.com/Crypto-of-Thrones/core/blob/main/SECURITY.md
+    about: Exploitable issues go to hi@cot.gg, never to a public issue.
+  - name: Game support
+    url: https://cot.gg
+    about: Account, payment or gameplay questions are answered by the game team, not in this repository.

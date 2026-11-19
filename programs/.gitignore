@@ -1,0 +1,6 @@
+target/
+Cargo.lock.bak
+**/*-keypair.json
+test-ledger/
+.anchor/
+node_modules/

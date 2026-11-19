@@ -1,0 +1,39 @@
+name: guard
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    env:
+      COT_GUARD_DENY: ${{ secrets.COT_GUARD_DENY }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Deny list
+        run: |
+          if [ -z "$COT_GUARD_DENY" ]; then
+            echo "::warning title=guard::The deny list is not available to this run (pull request from a fork). The deny-list check is skipped; every other rule still runs."
+            echo "COT_GUARD_ALLOW_EMPTY_DENY=1" >> "$GITHUB_ENV"
+          fi
+      - name: Files
+        run: node tools/guard/guard.mjs scan .
+      - name: Commits (main and tags)
+        if: github.event_name == 'push'
+        run: node tools/guard/guard.mjs commits HEAD
+      - name: Commits (pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          COT_GUARD_SKIP_AUTHOR: '1'
+        run: node tools/guard/guard.mjs commits "$BASE_SHA..HEAD"

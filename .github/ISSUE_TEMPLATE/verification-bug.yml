@@ -1,0 +1,57 @@
+name: Verification bug
+description: The verifier, the hunt replay or the verifiable build fails or gives a wrong result.
+title: "Verification bug: "
+labels: ["verification"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for problems with the verification tools themselves. For a draw whose outcome
+        looks wrong, use the "Draw divergence" template. For anything exploitable, write to
+        hi@cot.gg (see SECURITY.md).
+  - type: dropdown
+    id: tool
+    attributes:
+      label: Tool
+      options:
+        - tools/verify/verify.mjs
+        - tools/replay-hunt.mjs
+        - tools/replay-hunt-test.mjs
+        - programs/scripts/verifiable-build.sh
+        - other
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Core release or commit used
+      placeholder: "v0.1.0 or a commit hash"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "Node.js 22.11, Linux x86_64; Docker 27 for the build"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command you ran
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true

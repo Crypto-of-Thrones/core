@@ -1,0 +1,7 @@
+node_modules/
+programs/target/
+.env
+.env.*
+*.keypair.json
+*-keypair.json
+id.json

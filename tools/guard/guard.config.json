@@ -1,0 +1,9 @@
+{
+  "allowedAuthors": [
+    { "name": "Crypto of Thrones", "email": "358507019+CryptoofThrones@users.noreply.github.com" }
+  ],
+  "allowedEmailPatterns": [],
+  "allowedNames": ["Crypto of Thrones"],
+  "vendor": ["web/vendor/"],
+  "skip": [".git/"]
+}

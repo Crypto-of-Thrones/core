@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+*.png binary
+*.lock linguist-generated=true
+web/vendor/** linguist-vendored=true
+programs/cot_core/idl/*.json linguist-generated=true
+core-manifest.json linguist-generated=true

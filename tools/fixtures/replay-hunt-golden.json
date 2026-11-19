@@ -1,0 +1,15 @@
+{
+  "engine": 1,
+  "hours": {
+    "one": { "gross": 4857.707610399418, "trial": 13.97250039065532, "kills": 2145.9586666666564, "fieldSec": 3600 },
+    "two": { "gross": 6988.751870245206, "trial": 17.253030784006828, "kills": 2491.3986666666583, "fieldSec": 3600 },
+    "away": { "gross": 5473.452082016555, "trial": 55.00693518641382, "kills": 3630.255999999865, "fieldSec": 16420.000000000044 }
+  },
+  "legacyHours": {
+    "one": { "gross": 1311.0290502903756, "trial": 10.394357433471637, "kills": 2145.9586666666564, "fieldSec": 3600 },
+    "two": { "gross": 1866.7304125428827, "trial": 12.83479432926644, "kills": 2491.3986666666583, "fieldSec": 3600 },
+    "away": { "gross": 1666.8148234689295, "trial": 40.920503106931015, "kills": 3630.255999999865, "fieldSec": 16420.000000000044 }
+  },
+  "inputHash": { "one": "702b103107447f6fd32a2d665165f8e2c92416ab0981b6fa0dd1f8b2985d3666", "legacy": "9dcfe2625b5304c8fe6c08fe12528442b015d3ad7ba45cb6ea9f1318b626f697" },
+  "publish": ["arenamask.js", "balance.js", "buildprofile.js", "data.js", "drand.js", "fieldluck.js", "homestead.js", "hostbase.js", "hunt.js", "huntengine.js", "huntsim.js", "i18nsafe.js", "invite.js", "promos.js", "raidrules.js", "realmlive.js", "squire.js", "stakerules.js", "summon.js", "ticker.js", "trial.js", "worldboss.js"]
+}

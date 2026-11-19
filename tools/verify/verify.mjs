@@ -1,0 +1,157 @@
+#!/usr/bin/env node
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import { verifyChain, verifyEntry, proofChecker, anchorChecker, checkAnchor } from '../../web/js/ledgerverify.js';
+import { SERVER_URL, MAINNET, COT_PROGRAM_ID } from '../../web/js/buildprofile.js';
+
+export { checkAnchor };
+
+const DAY_MS = 86400e3;
+const ACCT_RE = /^[0-9a-f]{40}$/;
+
+export function parseArgs(argv) {
+  const o = { base: SERVER_URL, days: 400, json: false, mainnet: MAINNET, program: COT_PROGRAM_ID };
+  const flags = { '--base': 'base', '--rpc': 'rpc', '--anchor-key': 'anchorKey', '--from': 'from', '--days': 'days', '--file': 'file', '--rules-ref': 'rulesRef', '--program': 'program', '--known': 'known' };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--json') o.json = true;
+    else if (a === '--mainnet') o.mainnet = true;
+    else if (Object.hasOwn(flags, a)) {
+      if (a === '--days' || a === '--from') o.limited = true;
+      if (i + 1 >= argv.length) return { error: `${a} needs a value` };
+      o[flags[a]] = argv[++i];
+    } else if (!a.startsWith('--') && !o.acct) o.acct = a;
+    else return { error: `unknown argument ${a}` };
+  }
+  if (!o.acct || !ACCT_RE.test(o.acct)) return { error: 'the account must be 40 hex characters' };
+  o.days = Number(o.days);
+  if (!Number.isSafeInteger(o.days) || o.days < 1) return { error: '--days must be a positive integer' };
+  if (o.from && !/^\d{4}-\d{2}-\d{2}$/.test(o.from)) return { error: '--from must be YYYY-MM-DD' };
+  if (o.mainnet && !o.rpc) return { error: 'mainnet mode needs --rpc: every anchor must be read on chain' };
+  if (o.known !== undefined) {
+    const m = /^(\d+):([0-9a-f]{64})$/.exec(o.known);
+    if (!m) return { error: '--known must be <seq>:<64 hex hash>' };
+    o.known = { seq: Number(m[1]), hash: m[2] };
+  }
+  o.base = String(o.base).replace(/\/+$/, '');
+  return o;
+}
+
+export function historyProblem(o, entries, head) {
+  if (!entries.length) return { why: 'no entries' };
+  if (!o.limited && !o.file && entries[0].seq !== 1) return { why: `the history starts at seq ${entries[0].seq}, not at seq 1 (cut)` };
+  if (head && (entries.at(-1).seq !== head.seq || entries.at(-1).hash !== head.hash)) return { why: `the history ends at seq ${entries.at(-1).seq}, the server head is seq ${head.seq}` };
+  if (o.known) {
+    const k = entries.find((x) => x.seq === o.known.seq);
+    if (!k && (o.known.seq >= entries[0].seq || !o.limited)) return { why: `known entry seq ${o.known.seq} is gone (cut)` };
+    if (k && k.hash !== o.known.hash) return { why: `known entry seq ${o.known.seq} was rewritten` };
+  }
+  return null;
+}
+
+export function codeRef(dir = fileURLToPath(new URL('../..', import.meta.url))) {
+  try {
+    const git = (...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    if (git('status', '--porcelain', '--', 'web/js', 'server/src')) return null;
+    return git('rev-parse', 'HEAD') || null;
+  } catch {
+    return null;
+  }
+}
+
+async function getJson(fetchFn, url) {
+  const res = await fetchFn(url);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function download(o, { fetchFn, now }) {
+  const head = await getJson(fetchFn, `${o.base}/audit/${o.acct}/head`);
+  const top = head?.head?.seq || 0;
+  const bySeq = new Map();
+  const stop = o.from ? Date.parse(`${o.from}T00:00:00Z`) : -Infinity;
+  for (let i = 0, t = Math.floor(now / DAY_MS) * DAY_MS; i < o.days && t >= stop; i++, t -= DAY_MS) {
+    const day = new Date(t).toISOString().slice(0, 10);
+    for (let after = 0, pages = 0; pages < 1000; pages++) {
+      const r = await getJson(fetchFn, `${o.base}/audit/${o.acct}/day/${day}${after ? `?after=${after}` : ''}`);
+      for (const e of r?.entries || []) bySeq.set(e.seq, e);
+      if (!Number.isSafeInteger(r?.next) || r.next <= after) break;
+      after = r.next;
+    }
+    if (bySeq.has(1) || (top && bySeq.size >= top)) break;
+  }
+  return { entries: [...bySeq.values()].sort((a, b) => a.seq - b.seq), head: head?.head || null };
+}
+
+const FAIL = new Set(['bad', 'fail']);
+
+export function rowLabel(r) {
+  if (FAIL.has(r.status)) return 'FAIL';
+  if (r.status === 'rules') return 'RULES';
+  if (r.status !== 'ok') return 'WAIT';
+  return r.steps.anchor === 'ok' ? 'PASS' : r.steps.anchor === 'pending' ? 'PEND' : 'UNCHECKED';
+}
+
+export async function verifyAccount(o, entries, { fetchFn, info, rulesRef = null, now = Date.now(), head = null } = {}) {
+  const merkle = proofChecker(o.acct, (acct, seq) => getJson(fetchFn, `${o.base}/api/ledger/proof/${acct}/${seq}`).catch(() => null));
+  const anchor = anchorChecker({
+    rpc: o.rpc, anchorKey: o.anchorKey, programId: o.program, mainnet: !!o.mainnet, fetchFn, now,
+    getEpoch: (n) => getJson(fetchFn, `${o.base}/api/ledger/tx/${n}`),
+  });
+  const rows = [];
+  const chain = await verifyChain(entries);
+  const history = historyProblem(o, entries, head);
+  for (const e of entries) {
+    const r = await verifyEntry(e, entries, { info, merkle, anchor, rulesRef }).catch((err) => ({ status: 'fail', why: err.message, steps: {} }));
+    const why = (r.why === 'anchor' || r.steps.anchor === 'pending' || r.steps.anchor === 'unchecked' ? `anchor ${r.anchor?.status}: ${r.anchor?.why}` : r.why)
+      || (r.merkle?.status === 'bad' ? `merkle: ${r.merkle.why}` : undefined)
+      || (r.rules ? `rules of commit ${r.rules}: git checkout ${r.rules} and run again to replay this draw` : undefined);
+    const row = { seq: e.seq, kind: e.kind, status: r.status, why, epoch: r.merkle?.epoch, steps: r.steps, ...(r.rules ? { rules: r.rules } : {}) };
+    rows.push({ ...row, label: rowLabel(row) });
+  }
+  const counts = {};
+  for (const x of rows) counts[x.label] = (counts[x.label] || 0) + 1;
+  const ok = chain.ok && !history && entries.length > 0 && !rows.some((x) => FAIL.has(x.status));
+  return { ok, final: ok && rows.every((x) => x.label === 'PASS'), chain, history, rows, counts };
+}
+
+export function report(o, entries, v) {
+  const lines = [`account ${o.acct}: ${entries.length} entries${entries.length ? `, seq ${entries[0].seq} to ${entries.at(-1).seq}` : ''}`];
+  if (!v.chain.ok) lines.push(`FAIL hash chain: ${v.chain.why} at seq ${v.chain.at ?? '?'}`);
+  if (v.history) lines.push(`FAIL history: ${v.history.why}`);
+  for (const r of v.rows) {
+    const steps = Object.entries(r.steps).map(([k, s]) => `${k}=${s}`).join(' ');
+    lines.push(`${r.label} seq ${r.seq} ${r.kind}${r.epoch !== undefined ? ` epoch ${r.epoch}` : ''}  ${steps}${r.why ? `  (${r.why})` : ''}`);
+  }
+  const tally = Object.entries(v.counts).map(([k, n]) => `${n} ${k}`).join(', ') || 'no entries';
+  lines.push(`${v.ok ? (v.final ? 'PASS' : 'PASS, NOT FINAL (anchors pending or not read on chain)') : 'FAIL'}: ${tally}`);
+  return lines.join('\n');
+}
+
+export async function main(argv, deps = {}) {
+  const out = deps.out || ((s) => console.log(s));
+  const fetchFn = deps.fetchFn || ((...a) => globalThis.fetch(...a));
+  const o = parseArgs(argv);
+  if (o.error) {
+    out(`error: ${o.error}\nusage: node tools/verify/verify.mjs <acct> [--base URL] [--rpc URL] [--anchor-key PUBKEY] [--mainnet] [--program ID] [--known SEQ:HASH] [--from YYYY-MM-DD] [--days N] [--file entries.json] [--json]`);
+    return 2;
+  }
+  const now = deps.now ?? Date.now();
+  let entries;
+  let head = null;
+  try {
+    if (o.file) entries = JSON.parse(fs.readFileSync(o.file, 'utf8'));
+    else ({ entries, head } = await download(o, { fetchFn, now }));
+  } catch (err) {
+    out(`error: could not read the ledger: ${err.message}`);
+    return 2;
+  }
+  const rulesRef = o.rulesRef ?? (deps.rulesRef !== undefined ? deps.rulesRef : codeRef());
+  const v = await verifyAccount(o, entries, { fetchFn, info: deps.info, rulesRef, now, head });
+  out(o.json ? JSON.stringify({ acct: o.acct, ok: v.ok, final: v.final, chain: v.chain, history: v.history, counts: v.counts, entries: v.rows }, null, 2) : report(o, entries, v));
+  return v.ok ? 0 : 1;
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) process.exitCode = await main(process.argv.slice(2));

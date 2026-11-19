@@ -1,0 +1,25 @@
+
+[toolchain]
+anchor_version = "1.2.2"
+solana_version = "3.1.10"
+package_manager = "npm"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+cot_core = "AZkgkmGfmqLrLpKDrAjtJXrKt6LA8agJxU5PYSwRrAAv"
+
+[programs.devnet]
+cot_core = "9Ba34xzmNb9WP8YrhRi2brwnFJLdNsAZrQmgA6FRK5k4"
+
+[programs.mainnet]
+cot_core = "MainnetProgramNotSetYet11111111111111111111"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test -p cot_core --features test-sbf"

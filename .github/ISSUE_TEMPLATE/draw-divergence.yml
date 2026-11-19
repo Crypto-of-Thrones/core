@@ -1,0 +1,59 @@
+name: Draw divergence
+description: A draw whose recorded outcome does not match the beacon and the published rule.
+title: "Draw divergence: "
+labels: ["divergence"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for checking a draw. If this could be exploited to predict or choose an outcome,
+        stop here and write to hi@cot.gg instead (see SECURITY.md).
+  - type: input
+    id: account
+    attributes:
+      label: Account id
+      description: 40 hex characters, as shown in the game's Statement.
+    validations:
+      required: true
+  - type: input
+    id: entry
+    attributes:
+      label: Entry seq and hash
+      placeholder: "seq 1234, hash 9f2c..."
+    validations:
+      required: true
+  - type: input
+    id: kind
+    attributes:
+      label: Draw kind
+      placeholder: "summon, herobox, training, lottery, raid, hunt drop..."
+    validations:
+      required: true
+  - type: input
+    id: round
+    attributes:
+      label: drand round
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Core release or commit used
+      placeholder: "v0.1.0 or a commit hash"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected outcome and recorded outcome
+      description: What the rule gives with the derived uniforms, and what the ledger recorded.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Verifier output
+      description: Output of `node tools/verify/verify.mjs <account> --json` (or with `--file`).
+      render: json
+    validations:
+      required: true

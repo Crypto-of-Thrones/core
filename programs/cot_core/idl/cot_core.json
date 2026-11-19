@@ -1,0 +1,3150 @@
+{
+  "address": "AZkgkmGfmqLrLpKDrAjtJXrKt6LA8agJxU5PYSwRrAAv",
+  "metadata": {
+    "name": "cot_core",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Crypto of Thrones core program: reward vault, signed claim vouchers, fee split and referrals for the game token"
+  },
+  "instructions": [
+    {
+      "name": "accept_admin",
+      "discriminator": [
+        112,
+        42,
+        45,
+        90,
+        116,
+        181,
+        13,
+        170
+      ],
+      "accounts": [
+        {
+          "name": "new_admin",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_nonce",
+      "discriminator": [
+        75,
+        133,
+        88,
+        103,
+        81,
+        209,
+        139,
+        141
+      ],
+      "accounts": [
+        {
+          "name": "settler",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "wallet"
+        },
+        {
+          "name": "player_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  108,
+                  97,
+                  121,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "instructions_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "voucher",
+          "type": {
+            "defined": {
+              "name": "ClaimVoucher"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "claim_with_voucher",
+      "discriminator": [
+        48,
+        217,
+        238,
+        96,
+        67,
+        81,
+        122,
+        55
+      ],
+      "accounts": [
+        {
+          "name": "player",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "player_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  108,
+                  97,
+                  121,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "player"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "player_token",
+          "writable": true
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "rewards_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  115,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury_sol",
+          "writable": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "instructions_sysvar",
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "voucher",
+          "type": {
+            "defined": {
+              "name": "ClaimVoucher"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "fund_vault",
+      "discriminator": [
+        26,
+        33,
+        207,
+        242,
+        119,
+        108,
+        134,
+        73
+      ],
+      "accounts": [
+        {
+          "name": "funder",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "funder_token",
+          "writable": true
+        },
+        {
+          "name": "rewards_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  115,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "init_ledger_head",
+      "discriminator": [
+        16,
+        158,
+        125,
+        57,
+        38,
+        100,
+        94,
+        42
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "ledger_head",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114,
+                  95,
+                  104,
+                  101,
+                  97,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "caps",
+          "type": {
+            "defined": {
+              "name": "SettleAmounts"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "init_player",
+      "discriminator": [
+        114,
+        27,
+        219,
+        144,
+        50,
+        15,
+        228,
+        66
+      ],
+      "accounts": [
+        {
+          "name": "player",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "player_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  108,
+                  97,
+                  121,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "player"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "rewards_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  115,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "referral_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  102,
+                  101,
+                  114,
+                  114,
+                  97,
+                  108,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "events_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  115,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury"
+        },
+        {
+          "name": "program",
+          "address": "AZkgkmGfmqLrLpKDrAjtJXrKt6LA8agJxU5PYSwRrAAv"
+        },
+        {
+          "name": "program_data"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "InitializeParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "pause",
+      "discriminator": [
+        211,
+        22,
+        221,
+        251,
+        74,
+        121,
+        193,
+        47
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "pay_sol",
+      "discriminator": [
+        131,
+        101,
+        154,
+        50,
+        37,
+        136,
+        13,
+        67
+      ],
+      "accounts": [
+        {
+          "name": "player",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "player_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  108,
+                  97,
+                  121,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "player"
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury_sol",
+          "writable": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "name": "order_seq",
+          "type": "u64"
+        },
+        {
+          "name": "lamports",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "reanchor_ledger_head",
+      "discriminator": [
+        77,
+        30,
+        59,
+        83,
+        30,
+        69,
+        73,
+        204
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "ledger_head",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114,
+                  95,
+                  104,
+                  101,
+                  97,
+                  100
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "ReanchorArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_settle_caps",
+      "discriminator": [
+        252,
+        62,
+        5,
+        61,
+        195,
+        170,
+        117,
+        30
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "ledger_head",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114,
+                  95,
+                  104,
+                  101,
+                  97,
+                  100
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "caps",
+          "type": {
+            "defined": {
+              "name": "SettleAmounts"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "settle_epoch",
+      "discriminator": [
+        148,
+        223,
+        178,
+        38,
+        201,
+        158,
+        167,
+        13
+      ],
+      "accounts": [
+        {
+          "name": "settler",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "ledger_head",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  100,
+                  103,
+                  101,
+                  114,
+                  95,
+                  104,
+                  101,
+                  97,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "rewards_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  115,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "referral_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  102,
+                  101,
+                  114,
+                  114,
+                  97,
+                  108,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "events_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  115,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury",
+          "writable": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "SettleEpochArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "spend",
+      "discriminator": [
+        242,
+        205,
+        255,
+        87,
+        101,
+        217,
+        245,
+        57
+      ],
+      "accounts": [
+        {
+          "name": "player",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "player_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  108,
+                  97,
+                  121,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "player"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "player_token",
+          "writable": true
+        },
+        {
+          "name": "vault_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "rewards_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  115,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "referral_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  102,
+                  101,
+                  114,
+                  114,
+                  97,
+                  108,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "events_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  115,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury",
+          "writable": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "name": "order_seq",
+          "type": "u64"
+        },
+        {
+          "name": "profile",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "unpause",
+      "discriminator": [
+        169,
+        144,
+        4,
+        38,
+        10,
+        141,
+        188,
+        255
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "update_config",
+      "discriminator": [
+        29,
+        158,
+        252,
+        191,
+        10,
+        83,
+        219,
+        99
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "new_treasury",
+          "optional": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "UpdateConfigParams"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Config",
+      "discriminator": [
+        155,
+        12,
+        170,
+        224,
+        30,
+        250,
+        204,
+        130
+      ]
+    },
+    {
+      "name": "LedgerHead",
+      "discriminator": [
+        113,
+        7,
+        103,
+        50,
+        85,
+        7,
+        230,
+        201
+      ]
+    },
+    {
+      "name": "PlayerState",
+      "discriminator": [
+        56,
+        3,
+        60,
+        86,
+        174,
+        16,
+        244,
+        195
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "AdminAccepted",
+      "discriminator": [
+        174,
+        12,
+        76,
+        139,
+        158,
+        99,
+        110,
+        254
+      ]
+    },
+    {
+      "name": "Claimed",
+      "discriminator": [
+        217,
+        192,
+        123,
+        72,
+        108,
+        150,
+        248,
+        33
+      ]
+    },
+    {
+      "name": "ConfigUpdated",
+      "discriminator": [
+        40,
+        241,
+        230,
+        122,
+        11,
+        19,
+        198,
+        194
+      ]
+    },
+    {
+      "name": "EpochSettled",
+      "discriminator": [
+        32,
+        219,
+        45,
+        156,
+        250,
+        115,
+        190,
+        255
+      ]
+    },
+    {
+      "name": "LedgerReanchored",
+      "discriminator": [
+        248,
+        166,
+        150,
+        97,
+        28,
+        111,
+        172,
+        185
+      ]
+    },
+    {
+      "name": "NonceCancelled",
+      "discriminator": [
+        97,
+        165,
+        3,
+        200,
+        228,
+        217,
+        28,
+        102
+      ]
+    },
+    {
+      "name": "PauseChanged",
+      "discriminator": [
+        238,
+        188,
+        213,
+        78,
+        134,
+        209,
+        178,
+        218
+      ]
+    },
+    {
+      "name": "PlayerRegistered",
+      "discriminator": [
+        175,
+        78,
+        252,
+        170,
+        75,
+        230,
+        36,
+        251
+      ]
+    },
+    {
+      "name": "SettleCapsUpdated",
+      "discriminator": [
+        106,
+        212,
+        182,
+        209,
+        208,
+        241,
+        79,
+        175
+      ]
+    },
+    {
+      "name": "SolPaid",
+      "discriminator": [
+        79,
+        63,
+        191,
+        131,
+        5,
+        167,
+        163,
+        121
+      ]
+    },
+    {
+      "name": "Spent",
+      "discriminator": [
+        43,
+        51,
+        164,
+        100,
+        191,
+        244,
+        174,
+        98
+      ]
+    },
+    {
+      "name": "VaultFunded",
+      "discriminator": [
+        192,
+        119,
+        245,
+        193,
+        55,
+        223,
+        195,
+        50
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "NotUpgradeAuthority",
+      "msg": "Signer is not the program upgrade authority"
+    },
+    {
+      "code": 6001,
+      "name": "NotAdmin",
+      "msg": "Signer is not the configured admin"
+    },
+    {
+      "code": 6002,
+      "name": "NotGuardianOrAdmin",
+      "msg": "Signer is neither the guardian nor the admin"
+    },
+    {
+      "code": 6003,
+      "name": "NotPendingAdmin",
+      "msg": "Signer is not the pending admin"
+    },
+    {
+      "code": 6004,
+      "name": "FeeSplitNotFullBps",
+      "msg": "Fee split basis points must add up to exactly 10000"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidSplitProfile",
+      "msg": "Split profile is out of range, inactive, or profile 0 is missing"
+    },
+    {
+      "code": 6006,
+      "name": "ClaimTaxOutOfBounds",
+      "msg": "Claim tax parameters are out of bounds"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidClaimCaps",
+      "msg": "Claim caps must be positive and the daily cap cannot exceed the epoch cap"
+    },
+    {
+      "code": 6008,
+      "name": "EpochDurationOutOfBounds",
+      "msg": "Epoch duration is out of bounds"
+    },
+    {
+      "code": 6009,
+      "name": "VoucherTtlOutOfBounds",
+      "msg": "Voucher TTL is out of bounds"
+    },
+    {
+      "code": 6010,
+      "name": "ZeroKey",
+      "msg": "A required key is the default (all zero) pubkey"
+    },
+    {
+      "code": 6011,
+      "name": "UnsupportedMintExtension",
+      "msg": "Mint has a Token-2022 extension that this program does not accept"
+    },
+    {
+      "code": 6012,
+      "name": "MintHasFreezeAuthority",
+      "msg": "Mint still has a freeze authority"
+    },
+    {
+      "code": 6013,
+      "name": "MintMismatch",
+      "msg": "Token account mint does not match the configured mint"
+    },
+    {
+      "code": 6014,
+      "name": "MintDecimalsMismatch",
+      "msg": "Mint decimals do not match the decimals this program expects"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidMinClaim",
+      "msg": "Minimum claim must be positive and not above the daily cap"
+    },
+    {
+      "code": 6016,
+      "name": "WithdrawFeeOutOfBounds",
+      "msg": "Withdrawal SOL fee is above the hard ceiling"
+    },
+    {
+      "code": 6017,
+      "name": "ClaimCooldownOutOfBounds",
+      "msg": "Claim cooldown is out of bounds"
+    },
+    {
+      "code": 6018,
+      "name": "ClaimFeeBoundsOutOfBounds",
+      "msg": "Maximum claim fee must lie between the tax floor and the hard ceiling"
+    },
+    {
+      "code": 6019,
+      "name": "Paused",
+      "msg": "Program is paused"
+    },
+    {
+      "code": 6020,
+      "name": "AlreadyPaused",
+      "msg": "Program is already paused"
+    },
+    {
+      "code": 6021,
+      "name": "NotPaused",
+      "msg": "Program is not paused"
+    },
+    {
+      "code": 6022,
+      "name": "ZeroAmount",
+      "msg": "Amount must be greater than zero"
+    },
+    {
+      "code": 6023,
+      "name": "MathOverflow",
+      "msg": "Arithmetic overflow or underflow"
+    },
+    {
+      "code": 6024,
+      "name": "OrderSeqNotIncreasing",
+      "msg": "Order sequence must be strictly greater than the last paid order"
+    },
+    {
+      "code": 6025,
+      "name": "MissingEd25519Instruction",
+      "msg": "Instruction before the claim is not an Ed25519 signature verification"
+    },
+    {
+      "code": 6026,
+      "name": "MalformedEd25519Instruction",
+      "msg": "Ed25519 instruction is malformed or does not use the canonical layout"
+    },
+    {
+      "code": 6027,
+      "name": "WrongSignatureCount",
+      "msg": "Ed25519 instruction must verify exactly one signature"
+    },
+    {
+      "code": 6028,
+      "name": "Ed25519CrossInstructionReference",
+      "msg": "Ed25519 offsets must reference data inside the Ed25519 instruction itself"
+    },
+    {
+      "code": 6029,
+      "name": "WrongVoucherSigner",
+      "msg": "Voucher was not signed by the configured voucher signer"
+    },
+    {
+      "code": 6030,
+      "name": "VoucherMessageMismatch",
+      "msg": "Signed message does not match the expected voucher"
+    },
+    {
+      "code": 6031,
+      "name": "VoucherExpired",
+      "msg": "Voucher has expired"
+    },
+    {
+      "code": 6032,
+      "name": "VoucherExpiryTooFar",
+      "msg": "Voucher expiry is too far in the future"
+    },
+    {
+      "code": 6033,
+      "name": "NonceNotIncreasing",
+      "msg": "Voucher nonce must be strictly greater than the last used nonce"
+    },
+    {
+      "code": 6034,
+      "name": "DailyCapExceeded",
+      "msg": "Claim exceeds the player daily cap"
+    },
+    {
+      "code": 6035,
+      "name": "EpochCapExceeded",
+      "msg": "Claim exceeds the global epoch cap"
+    },
+    {
+      "code": 6036,
+      "name": "InsufficientVault",
+      "msg": "Reward vault balance is too low"
+    },
+    {
+      "code": 6037,
+      "name": "TransferAmountMismatch",
+      "msg": "Token transfer did not deliver the expected amount"
+    },
+    {
+      "code": 6038,
+      "name": "ClaimBelowMinimum",
+      "msg": "Claim is below the minimum withdrawal"
+    },
+    {
+      "code": 6039,
+      "name": "ClaimFeeAboveMax",
+      "msg": "Voucher fee is above the maximum lot fee"
+    },
+    {
+      "code": 6040,
+      "name": "ClaimFeeBelowFloor",
+      "msg": "Voucher fee is below the floor lot fee"
+    },
+    {
+      "code": 6041,
+      "name": "MissingLotsHash",
+      "msg": "Voucher lots hash is missing (all zero)"
+    },
+    {
+      "code": 6042,
+      "name": "ClaimCooldownActive",
+      "msg": "Only one withdrawal is allowed per cooldown window"
+    },
+    {
+      "code": 6043,
+      "name": "WalletBalanceTooLow",
+      "msg": "Wallet holds less than the minimum balance required to withdraw"
+    },
+    {
+      "code": 6044,
+      "name": "NotSettler",
+      "msg": "Signer is not the configured settler"
+    },
+    {
+      "code": 6045,
+      "name": "EpochAlreadySettled",
+      "msg": "Epoch is not after the last settled epoch"
+    },
+    {
+      "code": 6046,
+      "name": "SettleGapTooLarge",
+      "msg": "Epoch skips more empty epochs than one settlement may rebuild"
+    },
+    {
+      "code": 6047,
+      "name": "EpochNotEnded",
+      "msg": "Epoch has not ended yet"
+    },
+    {
+      "code": 6048,
+      "name": "PrevHashMismatch",
+      "msg": "Previous hash does not chain to the last settled epoch"
+    },
+    {
+      "code": 6049,
+      "name": "EpochHashMismatch",
+      "msg": "Epoch hash does not match epoch, root, leaf count and previous hash"
+    },
+    {
+      "code": 6050,
+      "name": "SettleCapExceeded",
+      "msg": "Settlement amount exceeds the per-epoch cap"
+    },
+    {
+      "code": 6051,
+      "name": "VoucherNotExpired",
+      "msg": "Voucher has not expired yet on the cluster clock"
+    },
+    {
+      "code": 6052,
+      "name": "SettleWindowCapExceeded",
+      "msg": "Settlement amount exceeds what the caps allow in the current real-time window"
+    },
+    {
+      "code": 6053,
+      "name": "EpochBeforeLedgerStart",
+      "msg": "Epoch is before the first epoch the ledger head accepts"
+    }
+  ],
+  "types": [
+    {
+      "name": "AdminAccepted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "previous_admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_admin",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimTax",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "start_bps",
+            "type": "u16"
+          },
+          {
+            "name": "floor_bps",
+            "type": "u16"
+          },
+          {
+            "name": "decay_bps_per_day",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimVoucher",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "fee",
+            "type": "u64"
+          },
+          {
+            "name": "lots_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "ledger_ref",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "expiry",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Claimed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "gross",
+            "type": "u64"
+          },
+          {
+            "name": "fee",
+            "type": "u64"
+          },
+          {
+            "name": "net",
+            "type": "u64"
+          },
+          {
+            "name": "lots_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "ledger_ref",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "sol_fee_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "day",
+            "type": "u64"
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_claimed",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Config",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_authority_bump",
+            "type": "u8"
+          },
+          {
+            "name": "rewards_vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "referral_vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "events_vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "voucher_signer",
+            "type": "pubkey"
+          },
+          {
+            "name": "settler",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_sol",
+            "type": "pubkey"
+          },
+          {
+            "name": "split_profiles",
+            "type": {
+              "array": [
+                {
+                  "defined": {
+                    "name": "FeeSplit"
+                  }
+                },
+                8
+              ]
+            }
+          },
+          {
+            "name": "daily_claim_cap",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_claim_cap",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_duration_secs",
+            "type": "i64"
+          },
+          {
+            "name": "current_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "claim_tax",
+            "type": {
+              "defined": {
+                "name": "ClaimTax"
+              }
+            }
+          },
+          {
+            "name": "voucher_max_ttl_secs",
+            "type": "i64"
+          },
+          {
+            "name": "min_claim",
+            "type": "u64"
+          },
+          {
+            "name": "min_wallet_balance",
+            "type": "u64"
+          },
+          {
+            "name": "withdraw_fee_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "claim_cooldown_secs",
+            "type": "i64"
+          },
+          {
+            "name": "claim_max_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "total_spent",
+            "type": "u64"
+          },
+          {
+            "name": "total_burned",
+            "type": "u64"
+          },
+          {
+            "name": "total_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "total_claim_tax",
+            "type": "u64"
+          },
+          {
+            "name": "total_sol_paid",
+            "type": "u64"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "voucher_signer",
+            "type": "pubkey"
+          },
+          {
+            "name": "settler",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint_decimals",
+            "type": "u8"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_sol",
+            "type": "pubkey"
+          },
+          {
+            "name": "split_profiles",
+            "type": {
+              "array": [
+                {
+                  "defined": {
+                    "name": "FeeSplit"
+                  }
+                },
+                8
+              ]
+            }
+          },
+          {
+            "name": "daily_claim_cap",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_claim_cap",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_duration_secs",
+            "type": "i64"
+          },
+          {
+            "name": "claim_tax",
+            "type": {
+              "defined": {
+                "name": "ClaimTax"
+              }
+            }
+          },
+          {
+            "name": "voucher_max_ttl_secs",
+            "type": "i64"
+          },
+          {
+            "name": "min_claim",
+            "type": "u64"
+          },
+          {
+            "name": "min_wallet_balance",
+            "type": "u64"
+          },
+          {
+            "name": "withdraw_fee_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "claim_cooldown_secs",
+            "type": "i64"
+          },
+          {
+            "name": "claim_max_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "initial",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EpochSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "settler",
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "leaf_count",
+            "type": "u64"
+          },
+          {
+            "name": "prev_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "skipped_epochs",
+            "type": "u64"
+          },
+          {
+            "name": "amounts",
+            "type": {
+              "defined": {
+                "name": "SettleAmounts"
+              }
+            }
+          },
+          {
+            "name": "totals",
+            "type": {
+              "defined": {
+                "name": "SettleAmounts"
+              }
+            }
+          },
+          {
+            "name": "epochs_settled",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeeSplit",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "burn_bps",
+            "type": "u16"
+          },
+          {
+            "name": "rewards_bps",
+            "type": "u16"
+          },
+          {
+            "name": "treasury_bps",
+            "type": "u16"
+          },
+          {
+            "name": "referral_bps",
+            "type": "u16"
+          },
+          {
+            "name": "events_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitializeParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "guardian",
+            "type": "pubkey"
+          },
+          {
+            "name": "voucher_signer",
+            "type": "pubkey"
+          },
+          {
+            "name": "settler",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury_sol",
+            "type": "pubkey"
+          },
+          {
+            "name": "split_profiles",
+            "type": {
+              "array": [
+                {
+                  "defined": {
+                    "name": "FeeSplit"
+                  }
+                },
+                8
+              ]
+            }
+          },
+          {
+            "name": "daily_claim_cap",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_claim_cap",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_duration_secs",
+            "type": "i64"
+          },
+          {
+            "name": "claim_tax",
+            "type": {
+              "defined": {
+                "name": "ClaimTax"
+              }
+            }
+          },
+          {
+            "name": "voucher_max_ttl_secs",
+            "type": "i64"
+          },
+          {
+            "name": "min_claim",
+            "type": "u64"
+          },
+          {
+            "name": "min_wallet_balance",
+            "type": "u64"
+          },
+          {
+            "name": "withdraw_fee_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "claim_cooldown_secs",
+            "type": "i64"
+          },
+          {
+            "name": "claim_max_fee_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LedgerHead",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "epochs_settled",
+            "type": "u64"
+          },
+          {
+            "name": "last_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "last_root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "last_leaf_count",
+            "type": "u64"
+          },
+          {
+            "name": "last_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "last_settled_ts",
+            "type": "i64"
+          },
+          {
+            "name": "caps",
+            "type": {
+              "defined": {
+                "name": "SettleAmounts"
+              }
+            }
+          },
+          {
+            "name": "totals",
+            "type": {
+              "defined": {
+                "name": "SettleAmounts"
+              }
+            }
+          },
+          {
+            "name": "window_used",
+            "type": {
+              "defined": {
+                "name": "SettleAmounts"
+              }
+            }
+          },
+          {
+            "name": "min_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                8
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "LedgerReanchored",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "previous_epochs_settled",
+            "type": "u64"
+          },
+          {
+            "name": "previous_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "previous_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "leaf_count",
+            "type": "u64"
+          },
+          {
+            "name": "hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "min_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NonceCancelled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "settler",
+            "type": "pubkey"
+          },
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "expiry",
+            "type": "i64"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PauseChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "by",
+            "type": "pubkey"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PlayerRegistered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PlayerState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "created_ts",
+            "type": "i64"
+          },
+          {
+            "name": "last_nonce",
+            "type": "u64"
+          },
+          {
+            "name": "last_claim_ts",
+            "type": "i64"
+          },
+          {
+            "name": "claim_day",
+            "type": "u64"
+          },
+          {
+            "name": "claimed_today",
+            "type": "u64"
+          },
+          {
+            "name": "last_order_seq",
+            "type": "u64"
+          },
+          {
+            "name": "total_spent",
+            "type": "u64"
+          },
+          {
+            "name": "total_claimed",
+            "type": "u64"
+          },
+          {
+            "name": "total_sol_paid",
+            "type": "u64"
+          },
+          {
+            "name": "last_cancelled_nonce",
+            "type": "u64"
+          },
+          {
+            "name": "reserved",
+            "type": {
+              "array": [
+                "u8",
+                24
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReanchorArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "leaf_count",
+            "type": "u64"
+          },
+          {
+            "name": "hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettleAmounts",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "burn",
+            "type": "u64"
+          },
+          {
+            "name": "to_treasury",
+            "type": "u64"
+          },
+          {
+            "name": "to_referral",
+            "type": "u64"
+          },
+          {
+            "name": "to_events",
+            "type": "u64"
+          },
+          {
+            "name": "from_events",
+            "type": "u64"
+          },
+          {
+            "name": "from_referral",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettleCapsUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "caps",
+            "type": {
+              "defined": {
+                "name": "SettleAmounts"
+              }
+            }
+          },
+          {
+            "name": "initial",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettleEpochArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "leaf_count",
+            "type": "u64"
+          },
+          {
+            "name": "prev_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amounts",
+            "type": {
+              "defined": {
+                "name": "SettleAmounts"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SolPaid",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "order_seq",
+            "type": "u64"
+          },
+          {
+            "name": "lamports",
+            "type": "u64"
+          },
+          {
+            "name": "treasury_sol",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Spent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "profile",
+            "type": "u8"
+          },
+          {
+            "name": "order_seq",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "burned",
+            "type": "u64"
+          },
+          {
+            "name": "to_rewards",
+            "type": "u64"
+          },
+          {
+            "name": "to_treasury",
+            "type": "u64"
+          },
+          {
+            "name": "to_referral",
+            "type": "u64"
+          },
+          {
+            "name": "to_events",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UpdateConfigParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "new_admin",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "guardian",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "voucher_signer",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "settler",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "treasury_sol",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "split_profiles",
+            "type": {
+              "option": {
+                "array": [
+                  {
+                    "defined": {
+                      "name": "FeeSplit"
+                    }
+                  },
+                  8
+                ]
+              }
+            }
+          },
+          {
+            "name": "daily_claim_cap",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "epoch_claim_cap",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "epoch_duration_secs",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "claim_tax",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "ClaimTax"
+                }
+              }
+            }
+          },
+          {
+            "name": "voucher_max_ttl_secs",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "min_claim",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "min_wallet_balance",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "withdraw_fee_lamports",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "claim_cooldown_secs",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "claim_max_fee_bps",
+            "type": {
+              "option": "u16"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultFunded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "funder",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ]
+}
