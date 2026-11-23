@@ -1,3 +1,4 @@
+import { BALANCE } from './balance.js';
 
 export const REALM_LIVE = { emission: 1, index: 1, charge: 0 };
 
@@ -7,13 +8,21 @@ export const chargeIx = () => Math.min(1, REALM_LIVE.charge > REALM_LIVE.index ?
 
 export const roundCot = (x) => (x >= 100 ? Math.round(x) : x >= 1 ? Math.round(x * 100) / 100 : Math.max(0.001, Math.round(x * 1000) / 1000));
 
-export const cotPrice = (base) => (base > 0 ? roundCot(base * chargeIx()) : base);
+export const PRICE_FACTOR = BALANCE.price?.factor ?? 1;
+
+export const spendBase = (base) => (base > 0 ? Math.max(1, Math.round(base * PRICE_FACTOR)) : base);
+
+export const cotPrice = (base) => (base > 0 ? roundCot(spendBase(base) * chargeIx()) : base);
+
+export const REWARD_FACTOR = BALANCE.reward?.factor ?? 1;
+
+export const rewardBase = (base) => (base > 0 ? Math.max(1, Math.round(base * REWARD_FACTOR)) : base);
 
 export const payoutMult = () => REALM_LIVE.emission * REALM_LIVE.index;
 
-export const payout = (base) => (base > 0 ? Math.round(base * payoutMult() * 100) / 100 : base);
+export const payout = (base) => (base > 0 ? Math.round(rewardBase(base) * payoutMult() * 100) / 100 : base);
 
-export const indexed = (base) => (base > 0 ? Math.round(base * REALM_LIVE.index * 100) / 100 : base);
+export const indexed = (base) => (base > 0 ? Math.round(rewardBase(base) * REALM_LIVE.index * 100) / 100 : base);
 
 function live(obj, keys, fn, deep) {
   for (const k of keys || Object.keys(obj)) {
@@ -37,7 +46,15 @@ export const livePayouts = (obj, keys = null, { deep = false } = {}) => live(obj
 
 export const liveIndexed = (obj, keys = null, { deep = false } = {}) => live(obj, keys, indexed, deep);
 
+export const indexOnly = (base) => (base > 0 ? Math.round(base * REALM_LIVE.index * 100) / 100 : base);
+
+export const liveIndexOnly = (obj, keys = null, { deep = false } = {}) => live(obj, keys, indexOnly, deep);
+
+export const liveSpend = (obj, keys = null, { deep = false } = {}) => live(obj, keys, (b) => Math.round(spendBase(b) * REALM_LIVE.index * 100) / 100, deep);
+
 export function applyRealmIndex(rec) {
+  const cot = Number(rec?.reserves?.cot), sol = Number(rec?.reserves?.sol);
+  Object.assign(POOL_SPOT, cot > 0 && sol > 0 && Number.isFinite(cot) && Number.isFinite(sol) ? { cot, sol } : { cot: 0, sol: 0 });
   const ix = Number(rec?.index);
   if (!(ix > 0 && ix <= 1)) return false;
   if (FIXED_PRICES) {
@@ -59,3 +76,5 @@ export function applyRealmIndex(rec) {
 }
 
 export const INDEX_DAY = { live: false, day: '', hash: '' };
+
+export const POOL_SPOT = { cot: 0, sol: 0 };

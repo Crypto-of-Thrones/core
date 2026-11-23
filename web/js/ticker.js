@@ -28,7 +28,8 @@ export const withTicker = (text) => String(text).replaceAll('{ticker}', current)
 export async function refreshTicker(server = SERVER_URL, fetchFn = globalThis.fetch) {
   try {
     const r = await fetchFn(`${String(server).replace(/\/$/, '')}/public-config`);
-    if (r.ok) setTicker((await r.json())?.ticker);
+    const t = r.ok ? (await r.json())?.ticker : null;
+    if (t && !(valid(COIN_NAME) && t === TICKER_DEFAULT)) setTicker(t);
   } catch {  }
   return current;
 }

@@ -117,12 +117,14 @@ export function notFinalReasons(rows) {
   const rules = rows.filter((x) => x.label === 'RULES');
   if (rules.length) reasons.push({ code: 'rules', count: rules.length, commits: [...new Set(rules.map((x) => x.rules))] });
   if (n('PEND') + n('UNCHECKED')) reasons.push({ code: 'anchors', count: n('PEND') + n('UNCHECKED'), pending: n('PEND'), unchecked: n('UNCHECKED') });
+  if (n('SIG')) reasons.push({ code: 'sig', count: n('SIG') });
   if (n('WAIT')) reasons.push({ code: 'wait', count: n('WAIT') });
   return reasons;
 }
 
 function reasonText(x) {
   if (x.code === 'rules') return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} recorded under other rules (${x.commits.join(', ')}), rule replay not run: re-check them with the core release of those rules or --rules-ref any`;
+  if (x.code === 'sig') return `${x.count} ${x.count === 1 ? 'draw' : 'draws'} checked by drand signature only: no rule replayed the outcome (a kind without a replay rule, or its public record not readable here)`;
   if (x.code === 'anchors') return `${x.count} ${x.count === 1 ? 'anchor' : 'anchors'} not final (${x.pending} pending, ${x.unchecked} not read on chain)`;
   return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} still waiting for a check`;
 }
@@ -130,6 +132,7 @@ function reasonText(x) {
 export function rowLabel(r) {
   if (FAIL.has(r.status)) return 'FAIL';
   if (r.status === 'rules') return 'RULES';
+  if (r.status === 'sig') return 'SIG';
   if (r.status !== 'ok') return 'WAIT';
   return r.steps.anchor === 'ok' ? 'PASS' : r.steps.anchor === 'pending' ? 'PEND' : 'UNCHECKED';
 }

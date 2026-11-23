@@ -33,7 +33,9 @@ In scope:
   `tools/verify/verify.mjs`);
 - the deterministic engine and the rule modules under `web/js/`, and the hunt replay
   (`tools/replay-hunt.mjs`);
-- the on-chain program under `programs/cot_core/` and its verifiable build script.
+- the on-chain program under `programs/cot_core/` and its verifiable build script, deployed on
+  Solana mainnet-beta as `Cyz7fwhJomMxGtNtj752YcuoSvKASRaYTzrxhHu31FaC` (and on devnet, for the
+  public beta, as `9Ba34xzmNb9WP8YrhRi2brwnFJLdNsAZrQmgA6FRK5k4`).
 
 Out of scope:
 

@@ -42,21 +42,22 @@ function refsOf(engine, replay, mult, extra = {}) {
 const GOLDEN = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/fixtures/replay-hunt-golden.json'), 'utf8'));
 
 function hours(legacy = false) {
-  const h = hoursNow();
-  if (legacy) for (const e of Object.values(h)) for (const leg of e.legs) { delete leg.castleBonus; delete leg.farmDays; }
+  const h = hoursNow(legacy);
+  if (legacy) for (const e of Object.values(h)) for (const leg of e.legs) { delete leg.castleBonus; delete leg.farmDays; delete leg.squireRest; }
   return h;
 }
-function hoursNow() {
-  const one = { v: ENGINE_V, legs: [legInput(roster(), T0, T0 + HOUR, { live: true, ...RULES })] };
+function hoursNow(oldSquire = false) {
+  const leg = (...a) => { const x = legInput(...a); if (oldSquire) delete x.squireRest; return x; };
+  const one = { v: ENGINE_V, legs: [leg(roster(), T0, T0 + HOUR, { live: true, ...RULES })] };
   const live = roster();
-  const legA = legInput(live, T0, T0 + 25 * 60e3, { live: true, ...RULES });
+  const legA = leg(live, T0, T0 + 25 * 60e3, { live: true, ...RULES });
   runLeg(legA, live);
   live[1].status = 'idle';
   live[2].status = 'work';
   live.push({ id: 'g12', key: keys[3], level: 4, energy: 80, shield: 60, status: 'work', since: T0 + 25 * 60e3 });
-  const legB = legInput(live, T0 + 25 * 60e3, T0 + HOUR, { live: true, ...RULES, squire: false });
+  const legB = leg(live, T0 + 25 * 60e3, T0 + HOUR, { live: true, ...RULES, squire: false });
   const two = { v: ENGINE_V, legs: [legA, legB] };
-  const away = { v: ENGINE_V, legs: [legInput(roster(), T0 - 6 * HOUR, T0, { live: false, ...RULES })] };
+  const away = { v: ENGINE_V, legs: [leg(roster(), T0 - 6 * HOUR, T0, { live: false, ...RULES })] };
   return { one, two, away };
 }
 const FIGHT = [{ day: 1, round: 2, start: T0 + 30 * 60e3, end: T0 + 45 * 60e3 }];
@@ -69,6 +70,17 @@ await test('golden hours replay to the frozen numbers', () => {
     away: replayHour(h.away),
   };
   for (const k of Object.keys(GOLDEN.hours)) assert.deepEqual(got[k], GOLDEN.hours[k], `golden hour ${k}`);
+});
+
+await test('hours recorded before squireRest replay on the earlier Squire rule', () => {
+  const h = hoursNow(true);
+  const got = {
+    one: replayHour(h.one),
+    two: replayHour(h.two, fightBonus(FIGHT, {}, false).fight),
+    away: replayHour(h.away),
+  };
+  for (const k of Object.keys(GOLDEN.preSquireRestHours)) assert.deepEqual(got[k], GOLDEN.preSquireRestHours[k], `pre-squireRest golden hour ${k}`);
+  assert.equal(hoursNow().one.legs[0].squireRest, true);
 });
 
 await test('hours recorded before castleBonus replay on the castle table they were paid with', async () => {

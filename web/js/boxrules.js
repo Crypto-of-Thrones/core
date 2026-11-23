@@ -1,4 +1,4 @@
-import { HEROES, RARITIES, BOXES } from './data.js';
+import { HEROES, RARITIES, BOXES, BOX_COINS_BASE } from './data.js';
 
 const RARITY_ORDER = Object.keys(RARITIES);
 
@@ -16,10 +16,11 @@ export function pickHero(uRarity, uHero, floor) {
   return pool[Math.min(pool.length - 1, Math.floor(uHero * pool.length))];
 }
 
-export function boxContents(key, u) {
+export function boxContents(key, u, base = false) {
   const b = BOXES[key];
+  const coins = base ? BOX_COINS_BASE[key] : b.coins;
   const out = {
-    coins: Math.round(b.coins[0] + u[0] * (b.coins[1] - b.coins[0])),
+    coins: Math.round(coins[0] + u[0] * (coins[1] - coins[0])),
     gems: b.gems ? Math.round(b.gems[0] + u[1] * (b.gems[1] - b.gems[0])) : 0,
     hero: null,
   };

@@ -1,5 +1,5 @@
 import { HEROES, RARITIES, SUMMON_COST, summonCost } from './data.js';
-import { cotPrice, livePrices, livePayouts, liveIndexed } from './realmlive.js';
+import { cotPrice, livePrices, livePayouts, liveSpend } from './realmlive.js';
 import { floorChance } from './summon.js';
 import { seeded, VIGIL_WINDOW_ID } from './raidrules.js';
 import { rivalsAt, prizeOf } from './invite.js';
@@ -95,7 +95,7 @@ export const SUMMON_RANKING = {
 
 for (const p of PROMOS) for (const s of p.steps || []) if (!s.sol) livePrices(s, ['price']);
 livePayouts(SUMMON_RANKING, ['potFloor']);
-liveIndexed(SUMMON_RANKING, ['realmSpend']);
+liveSpend(SUMMON_RANKING, ['realmSpend']);
 
 export const FIGHT_HOUR = {
   id: 'fight_hour', kind: 'event', name: 'Fight Hour', tag: t('promos.fightHour.tag', null, 'Hunt event'), art: 'enemies/spider_portrait.png', hours: 1, schedule: null,

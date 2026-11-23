@@ -31,6 +31,8 @@ export function squireStep(heroes, { cap, slots = 0, ready = 0.8, maxEnergy, max
     hunt.sort(byPower);
   }
 
+  for (const x of heroes) if (x.status === 'idle' && !broken(x) && !isReady(x)) toRest(x);
+
   if (slots > 0) {
     const guests = heroes.filter((x) => x.status === 'rest' && x.castle);
     const tired = heroes.filter((x) => x.status === 'rest' && !x.castle && ratio(x) < 1).sort((a, b) => ratio(a) - ratio(b));

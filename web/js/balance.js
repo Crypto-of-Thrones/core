@@ -14,12 +14,12 @@ export const BALANCE = freeze({
   },
   "farm": {
     "paybackDays": {
-      "common": 82,
-      "uncommon": 28.12,
-      "rare": 16.9,
-      "epic": 8.4,
-      "legendary": 3.316,
-      "mythic": 1.759
+      "common": 81.25,
+      "uncommon": 28.125,
+      "rare": 18.75,
+      "epic": 15,
+      "legendary": 11.25,
+      "mythic": 8.75
     }
   },
   "feeSplit": {
@@ -33,7 +33,7 @@ export const BALANCE = freeze({
     "feePct": 3,
     "feeStartPct": 15,
     "feeStepPct": 2,
-    "min": 100000,
+    "min": 10000,
     "hold": 2500
   },
   "pvp": {
@@ -60,8 +60,15 @@ export const BALANCE = freeze({
     "chargeHighDays": 10,
     "chargeRefFromDays": 7,
     "chargeRefToDays": 14,
-    "minPoolSol": 16.7
+    "minPoolSol": 16.7,
+    "alertUsd": 8
+  },
+  "price": {
+    "factor": 0.4
+  },
+  "reward": {
+    "factor": 0.4
   }
 });
 
-export const BALANCE_HASH = '0819e92bb6dccc556b33c8d211e298910155c49239ab1fa4895f3385247b4c4b';
+export const BALANCE_HASH = '459348f38781e89fbf72e16e53f9419508a571669563a3b8bc4792ed6d59bc49';

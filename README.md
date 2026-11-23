@@ -69,7 +69,11 @@ node tools/replay-hunt-test.mjs
 # 2. Replay one hunt hour (a ledger entry or its engine input, as JSON)
 node tools/replay-hunt.mjs hour.json
 
-# 3. Verify the whole public ledger of an account (40 hex characters) on the public beta
+# 3. Verify the whole public ledger of an account (40 hex characters) on mainnet
+node tools/verify/verify.mjs <account> --mainnet --base https://api.cot.gg \
+  --rpc https://api.mainnet-beta.solana.com --program Cyz7fwhJomMxGtNtj752YcuoSvKASRaYTzrxhHu31FaC
+
+# 3b. The same on the public devnet beta
 node tools/verify/verify.mjs <account> --base https://api-beta.cot.gg --rpc https://api.devnet.solana.com
 ```
 
@@ -81,7 +85,7 @@ cannot be read). Useful flags:
 
 | Flag | Meaning |
 |---|---|
-| `--base URL` | The game server that serves the public ledger (`https://api-beta.cot.gg` for the beta) |
+| `--base URL` | The game server that serves the public ledger (`https://api.cot.gg` on mainnet, `https://api-beta.cot.gg` for the beta) |
 | `--rpc URL` | Any Solana JSON-RPC endpoint; the anchors are read on chain through it |
 | `--mainnet` | Mainnet rules: `--rpc` is required and only `settle_epoch` anchors are accepted |
 | `--file entries.json` | Verify a saved copy of the ledger instead of downloading it |
@@ -209,21 +213,57 @@ It keeps the vault and player accounts, spends and pays with fee splits checked 
 accepts claims only with a voucher signed by the game's signer and a unique nonce, and settles the
 hourly ledger epochs (`settle_epoch`). `programs/cot_core/idl/cot_core.json` is its interface.
 
+### Deployed program
+
+| | |
+|---|---|
+| Cluster | Solana mainnet-beta (live since 2026-11-20) |
+| Program id | `Cyz7fwhJomMxGtNtj752YcuoSvKASRaYTzrxhHu31FaC` |
+| Framework | Anchor 1.2.2, Solana 3.1.10 toolchain (`programs/Anchor.toml`) |
+| Executable hash (`solana-verify get-program-hash`) | `9051ee392c5fd8ec8b1e83e3af5c55555c1e59fbd75b910cb2f91bd99d4663aa` |
+| SHA-256 of the deployed `cot_core.so` (627,576 bytes) | `1c8110880a347156f1be0082cdc3a9833c0b1253d52f147d3bd7a7c97f621251` |
+| Upgrade authority | a Squads multisig vault (2 of 3 signers, 24 hour time lock); read it on chain with `solana program show <program id>` |
+| Devnet beta program | `9Ba34xzmNb9WP8YrhRi2brwnFJLdNsAZrQmgA6FRK5k4` (built with the cargo feature `devnet`) |
+
+### Audit scope of the program
+
+Everything under `programs/cot_core/`: about 3,600 lines of Rust in `src/`, the instruction
+interface in `idl/cot_core.json`, and the tests in `tests/` (LiteSVM integration tests and a
+compute budget test).
+
+- Instructions: `initialize`, `accept_admin`, `update_config`, `set_settle_caps`, `pause`,
+  `unpause`, `fund_vault`, `init_player`, `spend`, `pay_sol`, `claim_with_voucher`,
+  `cancel_nonce`, `init_ledger_head`, `settle_epoch`, `reanchor_ledger_head`.
+- Accounts: `Config`, `PlayerState`, `LedgerHead`, plus the program-derived token vaults.
+- Points worth the closest look: the ed25519 voucher check and nonce replay protection
+  (`voucher.rs`, `instructions/claim.rs`, `instructions/cancel.rs`), the fee split and integer
+  math (`math.rs`, `instructions/spend.rs`), the token transfers (`token_ops.rs`, Token and
+  Token-2022), the settlement window and its per-hour caps (`instructions/settle.rs`), and the
+  admin and pause paths (`instructions/admin.rs`).
+
+### Reproduce the deployed binary
+
 `programs/scripts/verifiable-build.sh` builds the program with
-[solana-verify](https://github.com/solana-foundation/solana-verifiable-build) inside a Docker image
-pinned by digest, so the same commit always gives the same program hash. To compare with the
-deployed program:
+[solana-verify](https://github.com/solana-foundation/solana-verifiable-build) 0.5.2 inside the
+official Docker image pinned by digest, so the same tree always gives the same program hash.
+Needs Docker and Rust.
 
 ```sh
-cd programs && bash scripts/verifiable-build.sh
-solana-verify get-program-hash -u <solana RPC URL> <program id>
+git clone https://github.com/Crypto-of-Thrones/core.git && cd core/programs
+bash scripts/verifiable-build.sh          # mainnet build, default features
+solana-verify get-program-hash -u https://api.mainnet-beta.solana.com \
+  Cyz7fwhJomMxGtNtj752YcuoSvKASRaYTzrxhHu31FaC
 ```
 
-The program embeds a `security.txt` (`programs/cot_core/src/lib.rs`). In this tree its contact,
-source code, release and revision fields hold `SET-AT-DEPLOY` placeholders; they are filled in
-for the mainnet deploy with the security contact, this repository, the release tag and the
-commit of the build. Mainnet builds are made from this repository's tree at that release tag, so
-the on-chain hash can be matched against the public source.
+The executable hash the script prints must equal the on-chain one. Every token of the Rust
+sources keeps the line and column it had in the tree the program was deployed from (only
+comments were removed), so the file and line locations compiled into the binary are the same.
+
+The program embeds a `security.txt` (`programs/cot_core/src/lib.rs`, read it with
+`query-security-txt`). Its `source_revision` and `source_release` name the commit and branch of
+the game's own repository the deployed binary was built from. That history is not public, so the
+binding between this repository and the deployed program is the reproduced hash above, not the
+commit id. The `auditors` field says that no external audit has been completed yet.
 
 ## Verification pipeline
 
@@ -294,8 +334,11 @@ not hold, the ledger is what counts.
 
 ## Audit FAQ
 
-**Which commit is live?** Each release tag names the commit the deployed game and program were
-built from. `core-manifest.json` lists the SHA-256 of every file and a `tree` hash of the whole set.
+**Which commit is live?** For the program, the one whose verifiable build gives the on-chain
+executable hash (see [Deployed program](#deployed-program)); the release notes say which release
+that is. For the game rules, each ledger entry names its rule commit, and the `rules` field of
+`core-manifest.json` names the commit this tree was exported from. `core-manifest.json` also lists
+the SHA-256 of every file and a `tree` hash of the whole set.
 
 **Can the server pick a good round?** No. The `act` entry that charges the player names a round
 that does not exist yet, and the verifier checks that the entry was written before that round's

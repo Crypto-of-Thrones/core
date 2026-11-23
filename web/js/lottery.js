@@ -1,9 +1,10 @@
 import { RIVALS, seeded } from './raidrules.js';
 import { t } from './i18nsafe.js';
 import { SERVER_MODE } from './buildprofile.js';
+import { spendBase } from './realmlive.js';
 
 export const LOTTERY = {
-  price: 100,
+  price: spendBase(100),
   winners: 4,
   prizePct: 80,
   poolPct: 20,
@@ -18,13 +19,14 @@ export const dayOf = (now) => Math.floor(now / DAY);
 
 export const drawAt = (day) => (day + 1) * DAY;
 
-export const freshLottery = (now) => ({ day: dayOf(now), tickets: 0, log: [] });
+export const freshLottery = (now) => ({ day: dayOf(now), tickets: 0, held: 0, log: [] });
 
 export function normalizeLottery(x, now) {
   const rec = freshLottery(now);
   if (!x || typeof x !== 'object') return rec;
   if (Number.isInteger(x.day) && x.day <= rec.day) rec.day = x.day;
   rec.tickets = Math.min(LOTTERY.maxTickets, Math.max(0, Math.floor(Number(x.tickets)) || 0));
+  rec.held = Math.max(0, Math.floor(Number(x.held)) || 0);
   if (Array.isArray(x.log)) rec.log = x.log.filter((d) => d && Number.isInteger(d.day) && Array.isArray(d.winners)).slice(0, LOTTERY.history);
   return rec;
 }

@@ -178,9 +178,24 @@ export function wbState(w, now) {
   return now < w.end ? 'live' : 'ended';
 }
 
+export function unreadView({ live = false, failed = false, next = null } = {}) {
+  if (live) return { state: failed ? 'failed' : 'loading' };
+  return Number.isFinite(next?.start) ? { state: 'next', at: next.start } : { state: 'off' };
+}
+
 export const stepsOf = (w) => Math.max(1, Math.floor((w.end - w.start) / 1000 / WORLD_BOSS.step));
 
 export const stepAt = (w, now) => Math.min(stepsOf(w), Math.max(0, Math.floor((now - w.start) / 1000 / WORLD_BOSS.step)));
+
+export const SEEDS_PAGE = 1440;
+
+export const idleSteps = (joins) => (joins || []).reduce((s, j) => Math.min(s, j.step), Infinity);
+
+export function seedPages(have, resolved, n) {
+  const out = [];
+  for (let s = have; s < resolved && out.length < n; s += SEEDS_PAGE) out.push(s);
+  return out;
+}
 
 export function prizePool(w) {
   const [lo, hi] = WORLD_BOSS.eventsFund;

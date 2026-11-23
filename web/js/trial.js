@@ -64,6 +64,8 @@ export function burnBlock(h) {
 
 export const burnableRecruits = (heroes) => (Array.isArray(heroes) ? heroes : []).filter((h) => !burnBlock(h));
 
+export const wheelSpentOf = (roi) => num(roi?.inv) + num(roi?.ws);
+
 export const wheelFreeOk = (invested) => num(invested) >= TRIAL.wheelMinInvest - 1e-9;
 
 export const wheelFreeMissing = (invested) => Math.max(0, Math.ceil(TRIAL.wheelMinInvest - num(invested)));

@@ -1,7 +1,7 @@
 import { t, gamePage } from './i18nsafe.js';
 import { TICKER_DEFAULT } from './ticker.js';
 import { MAINNET, SERVER_MODE } from './buildprofile.js';
-import { cotPrice, indexed, livePrices, livePayouts, liveIndexed } from './realmlive.js';
+import { cotPrice, indexed, livePrices, livePayouts, liveIndexed, liveSpend, liveIndexOnly, indexOnly, spendBase, REWARD_FACTOR, rewardBase } from './realmlive.js';
 import { BALANCE } from './balance.js';
 
 export const TOKEN = gamePage ? t('net.token', null, 'tokens') : TICKER_DEFAULT;
@@ -24,6 +24,7 @@ export const WITHDRAW = {
 };
 
 export const FARM_ROI = {
+  lockOn: false,
   windowH: 24,
   peakDays: 7,
   lockPct: 70,
@@ -33,7 +34,7 @@ export const FARM_ROI = {
   kneePct: 50,
   toX: 2,
   capPct: 95,
-  solWeightPct: 30,
+  solWeightPct: 100,
   vaultPct: 50,
 };
 
@@ -42,18 +43,19 @@ export const TRIAL = Object.freeze({
   keys: Object.freeze(['recruit', 'lionguard', 'woodsman']),
   level: 1,
   farmPct: 10,
-  chestCap: 15_000,
+  chestCap: rewardBase(15_000),
   releasePct: 40,
   afterDays: 7,
-  wheelMinInvest: 25_000,
+  wheelMinInvest: spendBase(25_000),
 });
 
 const it = (kind, n, extra) => ({ kind, n, ...extra });
 export const PASS = {
   levels: 25,
-  days: 30,
-  price: 0.2,
-  start: Date.UTC(2026, 10, 1),
+  days: 25,
+  price: 1,
+  start: Date.UTC(2026, 10, 20),
+  catchUpCap: 5,
   missions: [
     { key: 'login', icon: 'castle', label: t('data.pass.login.label', null, 'Log in'), hint: t('data.pass.login.hint', null, 'Open the game today.') },
     { key: 'hunt', icon: 'sword', label: t('data.pass.hunt.label', null, 'Join the hunt'), hint: t('data.pass.hunt.hint', null, 'Send a mercenary to the hunt.') },
@@ -62,7 +64,7 @@ export const PASS = {
     { key: 'spin', icon: 'star', label: t('data.pass.spin.label', null, 'Spin the wheel'), hint: t('data.pass.spin.hint', null, 'Use your free daily wheel spin in Claims.') },
     { key: 'share', icon: 'trophy', label: t('data.pass.share.label', null, 'Share a feat'), hint: t('data.pass.share.hint', null, 'Share any achievement with your invite link.') },
   ],
-  target: 1_200_000,
+  target: spendBase(1_200_000),
   rewards: [
     { paid: [it('potion', 50)], free: null },
     { paid: [it('ticket', 30)], free: null },
@@ -121,7 +123,7 @@ export const FARM_BASE_DAYS = { common: 90, uncommon: 80, rare: 60, epic: 40, le
 const NET_PAYBACK = BALANCE.farm.paybackDays;
 export const FARM_BOOST = Object.fromEntries(Object.entries(NET_PAYBACK).map(([r, d]) => [r, FARM_BASE_DAYS[r] / (0.8 * d)]));
 export const FARM = {
-  days: Object.fromEntries(Object.entries(FARM_BASE_DAYS).map(([r, d]) => [r, d / FARM_BOOST[r]])),
+  days: Object.fromEntries(Object.entries(FARM_BASE_DAYS).map(([r, d]) => [r, d / FARM_BOOST[r] / REWARD_FACTOR])),
   killsPerMin: { common: 3.77, uncommon: 4.4, rare: 5.63, epic: 8.53, legendary: 10.35, mythic: 12.67 },
   hitsPerKill: { common: 17.45, uncommon: 14.61, rare: 9.98, epic: 8.9, legendary: 9.8, mythic: 11.97 },
   huntDrain: 0.5,
@@ -346,11 +348,12 @@ export const DRAGON_DRAW = 'dragonKind';
 export const dragonDrawId = (realm, seq) => `dragon:${realm}:${seq}`;
 export const dragonKindAt = (u) => { const k = Object.keys(DRAGONS); return k[Math.min(k.length - 1, Math.floor(u * k.length))]; };
 
+export const BOX_COINS_BASE = { lastblow: [700, 1400], top: [350, 825], champion: [175, 410], ember: [35, 110] };
 export const BOXES = {
-  lastblow: { name: 'Last Blow Hoard', rarity: 'mythic',    coins: [700, 1400], hero: 0.5, heroFloor: 'epic' },
-  top:      { name: "Slayer's Hoard",  rarity: 'legendary', coins: [350, 825],  hero: 0.3, heroFloor: 'rare' },
-  champion: { name: 'Champion Chest',  rarity: 'epic',      coins: [175, 410],  hero: 0.1, heroFloor: 'rare' },
-  ember:    { name: 'Ember Box',       rarity: 'rare',      coins: [35, 110],   hero: 0,   heroFloor: 'common' },
+  lastblow: { name: 'Last Blow Hoard', rarity: 'mythic',    coins: BOX_COINS_BASE.lastblow.map(rewardBase), hero: 0.5, heroFloor: 'epic' },
+  top:      { name: "Slayer's Hoard",  rarity: 'legendary', coins: BOX_COINS_BASE.top.map(rewardBase),      hero: 0.3, heroFloor: 'rare' },
+  champion: { name: 'Champion Chest',  rarity: 'epic',      coins: BOX_COINS_BASE.champion.map(rewardBase), hero: 0.1, heroFloor: 'rare' },
+  ember:    { name: 'Ember Box',       rarity: 'rare',      coins: BOX_COINS_BASE.ember.map(rewardBase),    hero: 0,   heroFloor: 'common' },
 };
 
 export const CASTLES = [
@@ -363,7 +366,6 @@ export const CASTLES = [
 ];
 export const OUTSIDE_REST = 0.5;
 export const castleFarmMult = (c) => 1 + (c ? c.bonus : 0) / 100;
-export const CASTLE_SELLBACK = 0.5;
 
 export const SHIELD_BASE = { common: 300, uncommon: 400, rare: 500, epic: 600, legendary: 750, mythic: 900 };
 export const SHIELD_PER_LEVEL = 0.05;
@@ -405,12 +407,13 @@ export const ACTIVE_CAP = 15;
 
 export const SQUIRE = {
   base: 400000,
-  step: 4000,
+  step: 0,
   supply: 1000,
   mockSold: SERVER_MODE ? 0 : 30,
   tick: 3,
   ready: 0.8,
 };
+export const SQUIRE_LIST_BASE = SQUIRE.base;
 
 export const FUSION = { size: 4, cost: { common: 2500, uncommon: 5000, rare: 10000, epic: 25000 }, crit: 0.001, from: ['common', 'uncommon', 'rare', 'epic'] };
 
@@ -428,6 +431,7 @@ export const PVP = {
   take: BALANCE.pvp.take,
   toRaider: BALANCE.pvp.toRaider,
   attacks: 20,
+  perRaid: 10,
   burst: 5,
   burstWait: 10,
   listMin: 300,
@@ -460,6 +464,15 @@ export const JOUST = {
   rounds: 30,
 };
 export const JOUST_BASE = Object.freeze({ entry: JOUST.entry, win: JOUST.win, pool: JOUST.pool, winBefore: 80 });
+
+export const DUEL = {
+  entry: 100,
+  win: 160,
+  pool: 40,
+  split: [0.5, 0.3, 0.2],
+  open: !MAINNET,
+};
+export const DUEL_BASE = Object.freeze({ entry: DUEL.entry, win: DUEL.win, pool: DUEL.pool });
 
 export const BATTLE = { power: 1, armor: 100, rounds: 50 };
 
@@ -725,7 +738,6 @@ export const ECONOMY = {
       potion: { curve: [[5, 72000], [10.25, 173430], [20.3, 440673], [40.6, 1178050], [80, 3456000]], ticks: [5, 10, 20, 40, 80], log: true },
     },
   },
-  buyback: { pct: CASTLE_SELLBACK * 100 },
   market: { burnPct: 6, treasuryPct: 6, buysPerDay: 0 },
   dev: { coins: 500, kills: 500 },
 };
@@ -782,7 +794,7 @@ export const AUCTIONS = [
 ];
 
 export const REFERRAL = {
-  link: 'https://play.cot.gg/r/',
+  link: 'https://play.cot.gg/j/',
   rewards: [
     { key: 'summons', need: 15, summons: 1, label: t('data.referral.rewards.summons', null, 'when a friend has summoned <b>15 mercenaries</b>') },
     { key: 'squire', summons: 3, label: t('data.referral.rewards.squire', null, 'when a friend buys their <b>first Squire</b>') },
@@ -823,7 +835,7 @@ export const REFERRAL_EVENT = {
   notes: [
     'New vassals: 2x points up to 1,000 pts, then 1x',
     'Each vassal caps at 2,000 pts per event',
-    `Only vassals who spent 25,000 ${TOKEN} score`,
+    `Only vassals who spent ${spendBase(25_000).toLocaleString('en-US')} ${TOKEN} score`,
   ],
 };
 
@@ -840,7 +852,7 @@ export const HUNT_STAKE = Object.freeze({
   removeHoldMs: 24 * 3600e3,
 });
 
-livePrices(WITHDRAW, ['min', 'hold']);
+liveIndexed(WITHDRAW, ['hold']);
 for (const r of PASS.rewards) for (const it of [...(r.paid || []), ...(r.free || [])]) if (it.kind === 'chest') liveIndexed(it, ['n']);
 livePrices(LEVEL_RARITY_PRICE);
 for (const c of CASTLES) livePrices(c, ['price']);
@@ -853,9 +865,13 @@ liveIndexed(PVP, ['listMin', 'countedFlat']);
 livePayouts(PVP, ['rivalFarm']);
 livePrices(JOUST, ['entry', 'pool']);
 Object.defineProperty(JOUST, 'win', { enumerable: true, configurable: true, get: () => JOUST.entry - JOUST.pool });
+livePrices(DUEL, ['entry', 'pool']);
+Object.defineProperty(DUEL, 'win', { enumerable: true, configurable: true, get: () => 2 * DUEL.entry - DUEL.pool });
 livePrices(HERO_BOX, ['price']);
 livePrices(TRAINING.cost);
 for (const b of Object.values(EXPEDITION.boats)) livePrices(b, ['price']);
+livePrices(EXPEDITION.speedup.perHour);
+livePrices(FORGE, ['upgrades']);
 livePrices(MARKET.heroBase);
 livePrices(MARKET.gearBase);
 livePrices(MARKET.gemBase);
@@ -867,8 +883,8 @@ livePrices(AUCTION, ['minStep']);
 for (const a of AUCTIONS) livePrices(a, ['minBid']);
 for (const pool of Object.values(ECONOMY.stake.pools)) {
   const base = pool.curve;
-  Object.defineProperty(pool, 'curve', { enumerable: true, configurable: true, get: () => base.map(([v, c]) => [v, indexed(c)]) });
+  Object.defineProperty(pool, 'curve', { enumerable: true, configurable: true, get: () => base.map(([v, c]) => [v, indexOnly(c)]) });
 }
-liveIndexed(REFERRAL, ['active']);
+liveSpend(REFERRAL, ['active']);
 livePayouts(REFERRAL_EVENT, ['potFloor']);
-for (const r of REFERRAL_EVENT.rules) liveIndexed(r, ['per']);
+for (const r of REFERRAL_EVENT.rules) liveSpend(r, ['per']);

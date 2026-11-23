@@ -83,4 +83,3 @@ export function horseBonus(r, mercId = null) {
 
 export const horsePower = (b) => (b ? b.atk * HORSE_POWER.atk + b.def * HORSE_POWER.def + b.spd * HORSE_POWER.spd : 0);
 
-export const listableHorse = (r, horseId) => !!r?.items?.some((x) => x.id === horseId) && riderOf(r, horseId) === null;

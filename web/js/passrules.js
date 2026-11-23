@@ -1,11 +1,24 @@
 import { PASS } from './data.js';
-import { featureOpen, normalizePlan } from './launchplan.js';
+import { featureOpen, featureOpensAt, normalizePlan } from './launchplan.js';
 
 const DAY = 86400e3;
 
 export const ITEM_LAUNCH = Object.freeze({ ticket: 'lottery', joust: 'joust' });
 
 export const rewardLaunched = (items, rec) => (items || []).every((it) => !ITEM_LAUNCH[it.kind] || featureOpen(ITEM_LAUNCH[it.kind], rec?.plan ?? null, (rec?.day ?? 0) * DAY));
+
+export function rewardOpensAt(items, rec) {
+  const plan = rec?.plan ?? null;
+  let out = null;
+  for (const it of items || []) {
+    const key = ITEM_LAUNCH[it.kind];
+    if (!key || featureOpen(key, plan, (rec?.day ?? 0) * DAY)) continue;
+    const at = featureOpensAt(key, plan);
+    if (at == null) return null;
+    if (!out || at > out.at) out = { at, key };
+  }
+  return out;
+}
 
 export const TRACKS = ['paid', 'free'];
 
@@ -45,12 +58,25 @@ export function normalizePass(p, now = Date.now()) {
   return out;
 }
 
+export const daysLeft = (rec) => Math.max(1, dayOf(seasonEnd(rec.season)) - rec.day);
+
+export function dayValue(rec) {
+  const missing = PASS.levels - rec.level;
+  if (missing <= 0) return 0;
+  return Math.min(missing, PASS.catchUpCap, Math.max(1, Math.ceil(missing / daysLeft(rec))));
+}
+
 export function syncPass(rec, now = Date.now()) {
   let changed = false;
   if (seasonOf(now) > rec.season) { Object.assign(rec, freshPass(now), { plan: rec.plan ?? null }); changed = true; } else if (dayOf(now) > rec.day) { rec.day = dayOf(now); rec.done = noneDone(); changed = true; }
   if (!rec.done.login) { rec.done.login = true; changed = true; }
-  if (rec.owned && allDone(rec) && rec.level < PASS.levels && rec.earnedDay !== rec.day) {
-    rec.level += 1;
+  if (rec.level < rec.days) {
+    rec.level = rec.days;
+    rec.earnedDay = Math.max(rec.earnedDay, rec.freeDay);
+    changed = true;
+  }
+  if (allDone(rec) && rec.level < PASS.levels && rec.earnedDay !== rec.day) {
+    rec.level += dayValue(rec);
     rec.earnedDay = rec.day;
     changed = true;
   }

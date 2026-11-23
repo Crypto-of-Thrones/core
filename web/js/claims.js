@@ -246,3 +246,19 @@ export function mergeItems(items) {
   }
   return out;
 }
+
+export function spinHeroes(spins, heroes) {
+  const left = [...(heroes || [])];
+  return spins.map((s) => {
+    const n = (s.items || WHEEL[s.wedge]?.items || []).filter((it) => it.kind === 'summon').reduce((t, it) => t + (it.n || 1), 0);
+    return n && left.length ? { ...s, heroes: left.splice(0, n) } : s;
+  });
+}
+
+export function wheelRolls(got, max = 15) {
+  const heroes = (got || []).flatMap((s) => s.heroes || []);
+  return {
+    rolls: heroes.slice(0, max).map(({ key, rarity, pity, battery }) => ({ key, rarity, pity, battery: battery === true })),
+    ids: new Set(heroes.map((x) => x.id).filter((id) => id != null)),
+  };
+}

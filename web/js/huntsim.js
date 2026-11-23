@@ -10,6 +10,13 @@ export const HUNT_STEP_S = 10;
 export const AWAY_MAX_S = 7 * 86400;
 export const AWAY_MIN_PAY_S = 5;
 export const PACE_DEFAULT = 0.8;
+export const TURN_SPREAD_MAX_MS = 60e3;
+
+export function turnWait(now, lastHour, turnMs, spreadMs) {
+  const hour = Math.floor(now / 3600e3);
+  if (lastHour !== hour - 1) return 0;
+  return Math.max(0, turnMs + spreadMs - (now % 3600e3));
+}
 export const SETTLE_SPREAD = 0.1;
 
 export const spreadOf = (u) => 1 + SETTLE_SPREAD * (2 * u - 1);
@@ -103,7 +110,7 @@ export function killPayOf(h, mult = 1) {
 
 export const ruleRateOf = (h, mult = 1) => (FARM.killsPerMin[HEROES[h.key].rarity] / 60) * killPayOf(h, mult) * (1 + skillMods(h.key).gold / 100);
 
-export const RETURN_MIN = 0.1;
+export const RETURN_MIN = 1;
 
 export const canReturnOf = (h) => h.energy >= Math.max(1, maxEnergyOf(h) * RETURN_MIN);
 
@@ -148,9 +155,8 @@ export const squirePowerOf = (h) => heroPowerOf(h) - (isTrial(h) ? 1e6 : 0);
 const SQUIRE_RARITY_ORDER = Object.keys(RARITIES);
 export const squireRankOf = (h) => (isTrial(h) ? -1 : Math.max(0, SQUIRE_RARITY_ORDER.indexOf(HEROES[h.key]?.rarity)));
 
-export function squirePass(heroes, castle = null) {
-  const ready = (x) => x.energy >= maxEnergyOf(x) * SQUIRE.ready;
-  const bench = heroes.filter((x) => x.status === 'idle' && !brokenOf(x) && ready(x));
+export function squirePass(heroes, castle = null, restTired = true) {
+  const bench = heroes.filter((x) => x.status === 'idle' && !brokenOf(x) && (restTired || x.energy >= maxEnergyOf(x) * SQUIRE.ready));
   return squireStep(heroes.filter((x) => x.status === 'work' || x.status === 'rest' || bench.includes(x)), {
     cap: FIELD_CAP, slots: castle ? castle.slots : 0, ready: SQUIRE.ready, maxEnergy: maxEnergyOf, maxShield: maxShieldOf, power: squirePowerOf, rank: squireRankOf,
   }) > 0;

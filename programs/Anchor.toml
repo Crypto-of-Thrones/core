@@ -15,7 +15,7 @@ cot_core = "AZkgkmGfmqLrLpKDrAjtJXrKt6LA8agJxU5PYSwRrAAv"
 cot_core = "9Ba34xzmNb9WP8YrhRi2brwnFJLdNsAZrQmgA6FRK5k4"
 
 [programs.mainnet]
-cot_core = "MainnetProgramNotSetYet11111111111111111111"
+cot_core = "Cyz7fwhJomMxGtNtj752YcuoSvKASRaYTzrxhHu31FaC"
 
 [provider]
 cluster = "localnet"

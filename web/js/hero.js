@@ -27,6 +27,12 @@ export const realmHeroName = (hero) => RANKS[hero.rarity].name;
 
 export const realmHeroKey = (hero) => `realm_${RANKS[hero.rarity] ? hero.rarity : 'common'}`;
 
+export function mountedKey(hero, horse) {
+  if (!horse) return '';
+  const r = realmHeroKey(hero).slice(6);
+  return r === 'legendary' && horse === 'legendary' ? 'realm_legendary_mounted' : `realm_${r}_on_${horse}`;
+}
+
 export const boxRefund = () => Math.round(HERO_BOX.price * HERO_BOX.refund);
 
 const between = ([lo, hi], rng) => lo + Math.min(hi - lo, Math.floor(rng() * (hi - lo + 1)));

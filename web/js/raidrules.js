@@ -1,5 +1,5 @@
 import { HEROES, RARITIES } from './data.js';
-import { livePrices, liveIndexed } from './realmlive.js';
+import { livePrices, liveIndexed, rewardBase } from './realmlive.js';
 import { t } from './i18nsafe.js';
 
 export const LEAGUE = {
@@ -22,7 +22,7 @@ export const RAID = {
   time: 110,
   arrive: 2.6,
   auto: false,
-  pool: 336000,
+  pool: rewardBase(336000),
   fallback: 0.25,
   phases: [0.66, 0.33],
   radius: 1.3,

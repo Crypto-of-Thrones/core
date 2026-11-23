@@ -1,5 +1,6 @@
 import { REFERRAL, REFERRAL_EVENT, BOXES, HEROES, RARITIES, MARKET, summonCost } from './data.js';
 import { seeded } from './raidrules.js';
+import { spendBase } from './realmlive.js';
 import { SERVER_MODE } from './buildprofile.js';
 
 const HOUR = 3600e3;
@@ -8,6 +9,13 @@ const MONDAY = 96 * HOUR;
 
 export const weekOf = (now) => Math.floor((now - MONDAY) / WEEK);
 export const weekEnd = (week) => (week + 1) * WEEK + MONDAY;
+export const ARK_PAYDAY = 15 * HOUR;
+export const arkPaydayLast = (now) => {
+  const t = weekEnd(weekOf(now) - 1) + ARK_PAYDAY;
+  return t <= now ? t : t - WEEK;
+};
+export const arkPaydayNext = (now) => arkPaydayLast(now) + WEEK;
+export const arkBatchId = (t) => new Date(t).toISOString().slice(0, 10);
 const weekProgress = (week, now) => Math.min(1, Math.max(0, 1 - (weekEnd(week) - now) / WEEK));
 
 const NAME_A = ['Frost', 'Iron', 'Ash', 'Bram', 'Cinder', 'Dusk', 'Ember', 'Fen', 'Grim', 'Hollow', 'Ivy', 'Jade'];
@@ -141,7 +149,7 @@ export function settleVassals(inv, now, live = true) {
       commission += pay;
       if (v.week !== ev.week) { v.week = ev.week; v.raw = 0; }
       const isNew = weekOf(v.at) === ev.week;
-      const raw = v.raw + delta / 1000;
+      const raw = v.raw + delta / spendBase(1000);
       if (live) {
         ev.pts += vassalPoints(raw, isNew) - vassalPoints(v.raw, isNew);
         ev.spent += delta;

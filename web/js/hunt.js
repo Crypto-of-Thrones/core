@@ -54,6 +54,8 @@ const ORPHAN_R = 6;
 const ORPHAN_WAIT = 2;
 const FIGHT_MIN = 5;
 export const WAVE_BREAK = 1;
+export const WAVE_SLOT = WAVE_TIME + WAVE_BREAK;
+export const WAVE_CYCLE = WAVES * WAVE_SLOT;
 const FOE_HP = 4;
 const FOE_HITS = 4;
 const FOE_HITS_HERO = 0.6;
@@ -2147,12 +2149,33 @@ export function createHunt(opts = {}) {
     return waves;
   }
 
+  function wavePhase() {
+    if (wave <= 0) return WAVE_BREAK - waveBreak;
+    if (waveBreak > 0) return wave * WAVE_SLOT + WAVE_BREAK - waveBreak;
+    return (wave - 1) * WAVE_SLOT + WAVE_BREAK + (WAVE_TIME - waveT);
+  }
+  function syncClock(ms, away = 0, kills = 0, min = 0.5) {
+    if (!Number.isFinite(ms) || raid.active()) return 0;
+    const mod = (x) => ((x % WAVE_CYCLE) + WAVE_CYCLE) % WAVE_CYCLE;
+    let d = mod(ms / 1000 - wavePhase());
+    const gone = Number.isFinite(away) ? Math.max(0, away) : WAVE_CYCLE;
+    if (WAVE_CYCLE - d <= WAVE_SLOT && d > gone + 1) {
+      const e = WAVE_CYCLE - d;
+      if (e < min) return 0;
+      if (waveBreak > 0 || wave <= 0) waveBreak += e;
+      else waveT += e;
+      return 0;
+    }
+    if (Number.isFinite(away) && gone > d + WAVE_CYCLE) d += Math.floor((gone - d) / WAVE_CYCLE) * WAVE_CYCLE;
+    return d >= min ? advance(d, kills) : 0;
+  }
+
   if (opts.resume) restore(opts.resume);
   else buildMap();
   const resumed = !opts.resume && resumeField(opts.field);
 
   return {
-    tick, step, apply, start, refreshUnits, snapshot, fieldState, advance,
+    tick, step, apply, start, refreshUnits, snapshot, fieldState, advance, syncClock,
     resumed: () => resumed,
     setRaid: (r) => { raid = r || NO_RAID; },
     setFight, setOil, setLoad, setHour, setClock, setRealm, summonDragon, nextRealm, regenerate, startWave,

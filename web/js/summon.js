@@ -5,11 +5,11 @@ const TOTAL = Object.values(RARITIES).reduce((s, r) => s + r.weight, 0);
 
 export const rarityRank = (r) => ORDER.indexOf(r);
 
-const poolFrom = (floor) => ORDER.slice(rarityRank(floor));
+const poolFrom = (floor, top = ORDER.at(-1)) => ORDER.slice(rarityRank(floor), rarityRank(top) + 1);
 const poolWeight = (pool) => pool.reduce((s, k) => s + RARITIES[k].weight, 0);
 
-export const rarityChance = (r, floor = ORDER[0]) => {
-  const pool = poolFrom(floor);
+export const rarityChance = (r, floor = ORDER[0], top = ORDER.at(-1)) => {
+  const pool = poolFrom(floor, top);
   return pool.includes(r) ? RARITIES[r].weight / poolWeight(pool) : 0;
 };
 
@@ -26,19 +26,20 @@ export function normalizePity(p) {
   return out;
 }
 
-export function rollRarity(rng = Math.random, floor = ORDER[0]) {
-  const pool = poolFrom(floor);
+export function rollRarity(rng = Math.random, floor = ORDER[0], top = ORDER.at(-1)) {
+  const pool = poolFrom(floor, top);
   let n = rng() * poolWeight(pool);
   for (const k of pool) { if ((n -= RARITIES[k].weight) < 0) return k; }
   return pool[0];
 }
 
-export function pullRarity(pity, rng = Math.random, floor = ORDER[0]) {
-  for (const b of PITY) pity[b.rarity] = (pity[b.rarity] || 0) + 1;
+export function pullRarity(pity, rng = Math.random, floor = ORDER[0], top = ORDER.at(-1)) {
+  const bars = PITY.filter((b) => rarityRank(b.rarity) <= rarityRank(top));
+  for (const b of bars) pity[b.rarity] = (pity[b.rarity] || 0) + 1;
   let forced = null;
-  for (const b of PITY) if (pity[b.rarity] >= b.at && rarityRank(b.rarity) >= rarityRank(floor)) forced = b.rarity;
-  const rarity = forced || rollRarity(rng, floor);
-  for (const b of PITY) {
+  for (const b of bars) if (pity[b.rarity] >= b.at && rarityRank(b.rarity) >= rarityRank(floor)) forced = b.rarity;
+  const rarity = forced || rollRarity(rng, floor, top);
+  for (const b of bars) {
     if (b.rarity === rarity || b.alsoResetBy?.includes(rarity)) pity[b.rarity] = 0;
     else pity[b.rarity] = Math.min(pity[b.rarity], b.at);
   }
@@ -50,9 +51,9 @@ export function pickHero(rarity, rng = Math.random) {
   return pool[Math.floor(rng() * pool.length)];
 }
 
-export function summonBatch(n, pity, rng = Math.random, floor = ORDER[0]) {
+export function summonBatch(n, pity, rng = Math.random, floor = ORDER[0], top = ORDER.at(-1)) {
   return Array.from({ length: n }, () => {
-    const r = pullRarity(pity, rng, floor);
+    const r = pullRarity(pity, rng, floor, top);
     const hero = { key: pickHero(r.rarity, rng), rarity: r.rarity, pity: r.pity };
     return floor === ORDER[0] ? hero : { ...hero, boxed: true };
   });

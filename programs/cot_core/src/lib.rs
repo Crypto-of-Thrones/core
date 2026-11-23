@@ -48,7 +48,7 @@ pub use voucher::ClaimVoucher;
 #[cfg(feature = "devnet")]
 declare_id!("9Ba34xzmNb9WP8YrhRi2brwnFJLdNsAZrQmgA6FRK5k4");
 #[cfg(not(feature = "devnet"))]
-declare_id!("AZkgkmGfmqLrLpKDrAjtJXrKt6LA8agJxU5PYSwRrAAv");
+declare_id!("Cyz7fwhJomMxGtNtj752YcuoSvKASRaYTzrxhHu31FaC");
 
 
 
@@ -79,15 +79,14 @@ solana_security_txt::security_txt! {
     project_url: "https://cot.gg",
 
 
-    contacts: "email:SET-AT-DEPLOY-security-mailbox",
+    contacts: "email:hi@cot.gg",
     policy: "https://cot.gg/security",
     preferred_languages: "pt,en",
-    encryption: "SET-AT-DEPLOY <URL of the PGP key, or delete this line>",
-    source_code: "SET-AT-DEPLOY https://github.com/<public repository>",
-    source_release: "SET-AT-DEPLOY <release tag>",
-    source_revision: "SET-AT-DEPLOY <git commit of the verified build>",
+    source_code: "https://github.com/Crypto-of-Thrones/core",
+    source_release: "feat/mock-ui-5713f7f64",
+    source_revision: "5713f7f64e5ee457c4c26bfd5c97416a4a87f318",
 
-    auditors: "SET-AT-DEPLOY https://cot.gg/wiki/security-and-audits#audit-report"
+    auditors: "None yet: external audit pending"
 }
 
 #[program]

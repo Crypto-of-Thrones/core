@@ -27,11 +27,12 @@ export function legInput(heroes, from, to, { live = false, paid, castle = -1, au
     realm: { emission: realm?.emission ?? REALM_LIVE.emission, index: realm?.index ?? REALM_LIVE.index },
     castle: Number.isInteger(castle) && CASTLES[castle] ? castle : -1,
     ...(Number.isInteger(castle) && CASTLES[castle] ? { castleBonus: CASTLES[castle].bonus } : {}),
-    farmDays: { ...FARM.days },
+    farmDays: { ...(realm?.farmDays || FARM.days) },
     autoSend: autoSend !== false,
     keep: !!keep,
     hunger: !!hunger,
     squire: !!squire,
+    squireRest: true,
     oilUntil: live && Number.isFinite(oilUntil) ? oilUntil : 0,
     lots: (lots || []).filter((l) => l && l.pool === 'farm').map((l) => ({ pool: 'farm', amount: l.amount, at: l.at })),
     heroes: heroes.map(heroSnap),
@@ -121,7 +122,7 @@ export function runLeg(input, heroes = null, tap = null) {
       return {
         ...(input.paid === 0 ? { paid: 0 } : {}), share: PACE_DEFAULT, rate: (h) => ruleRateOf(h, stakeNow() * castlePay) * (at < oilUntil ? oil : 1),
         rest: (dt) => { restStep(part, dt, { castle, autoSend, keep, hunger }); at += dt * 1000; },
-        squire: input.squire ? () => squirePass(part, castle) : null, broken: brokenOf, hit: hitShieldOf, onPay,
+        squire: input.squire ? () => squirePass(part, castle, input.squireRest === true) : null, broken: brokenOf, hit: hitShieldOf, onPay,
       };
     });
     return live ? { ...run, q } : run;
@@ -193,16 +194,27 @@ export function checkHour(refs, warShare) {
   } catch (e) {
     return { ok: false, why: e.message };
   }
-  const live = refs.live || null;
   const why = refs.fixed === true && refs.mult !== HUNT_MULT ? 'mult'
     : replay.gross !== refs.gross ? 'gross'
     : Math.round(replay.kills) !== refs.kills ? 'kills'
       : Math.round(replay.fieldSec) !== refs.fieldSec ? 'fieldSec'
         : refs.earned !== Math.max(0, Math.floor(refs.gross * refs.mult * 1000)) ? 'earned'
-          : live && !liveOk(live, refs.gross, warShare) ? 'live'
-            : refs.war + (live?.war || 0) !== Math.round(refs.earned * warShare) ? 'war'
-              : refs.chest + refs.war + (refs.roiCut || 0) + (live?.earned || 0) !== refs.earned ? 'split' : null;
+          : splitWhy(refs, warShare);
   return why ? { ok: false, why, replay } : { ok: true, replay };
+}
+
+export function splitWhy(refs, warShare) {
+  const live = refs.live || null;
+  const f = refs.forgiven;
+  if (f !== undefined) {
+    const n = (v) => Number.isSafeInteger(v) && v >= 0;
+    if (!live || !f || !n(f.chest) || !n(f.war) || f.chest + f.war === 0 || (f.chest > 0 && refs.chest !== 0) || (f.war > 0 && refs.war !== 0)) return 'forgiven';
+  }
+  const fc = f?.chest || 0;
+  const fw = f?.war || 0;
+  return live && !liveOk(live, f ? Infinity : refs.gross, warShare) ? 'live'
+    : refs.war - fw + (live?.war || 0) !== Math.round(refs.earned * warShare) ? 'war'
+      : refs.chest - fc + refs.war + (refs.roiCut || 0) + (live?.earned || 0) !== refs.earned ? 'split' : null;
 }
 
 

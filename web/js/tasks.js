@@ -24,7 +24,7 @@ export const POOL = [
   { key: 'd_kill_s', ev: 'kill', label: t('tasks.pool.kill', { count: 60 }, KILL), goal: 60, xp: 30, icon: 'skull', tier: 'easy' },
   { key: 'd_wave_s', ev: 'wave', label: t('tasks.pool.wave', { count: 2 }, WAVE), goal: 2, xp: 30, icon: 'map', tier: 'easy' },
   { key: 'd_ticket', ev: 'ticket', launch: 'lottery', label: t('tasks.pool.ticket', null, 'Buy a lottery ticket'), goal: 1, xp: 30, icon: 'crown', tier: 'easy' },
-  { key: 'd_share', ev: 'share', label: t('tasks.pool.share', null, 'Send a share card to a friend'), goal: 1, xp: 30, icon: 'star', tier: 'easy' },
+  { key: 'd_share', ev: 'share', label: t('tasks.pool.share', null, 'Send a share card to a friend'), serverHint: t('social.cm.do.discord_mural', null, 'Make a game card, save the image and post it in #mural.'), goal: 1, xp: 30, icon: 'star', tier: 'easy' },
   { key: 'd_kill_m', ev: 'kill', label: t('tasks.pool.kill', { count: 250 }, KILL), goal: 250, xp: 50, icon: 'skull', tier: 'medium' },
   { key: 'd_wave_m', ev: 'wave', label: t('tasks.pool.wave', { count: 5 }, WAVE), goal: 5, xp: 50, icon: 'map', tier: 'medium' },
   { key: 'd_summon', ev: 'summon', label: t('tasks.pool.summon', { count: 2 }, SUMMON), goal: 2, xp: 50, icon: 'chest', tier: 'medium' },
@@ -55,15 +55,22 @@ export const CHEST = {
   items: [
     { kind: 'ticket', n: 1, launch: 'lottery', label: t('tasks.chest.ticket', null, 'Lottery ticket'), icon: 'crown' },
     { kind: 'joust', n: 1, launch: 'joust', label: t('tasks.chest.joust', null, 'Free Joust entry'), icon: 'shield' },
-    { kind: 'level', n: 1, label: t('tasks.chest.level', null, 'Level scroll'), icon: 'scroll' },
   ],
 };
 
+const CHEST_V1 = [...CHEST.items, { kind: 'level', n: 1, label: t('tasks.chest.level', null, 'Level scroll'), icon: 'scroll' }];
+
 export const CHEST_STANDIN = 'level';
 
-export function chestPick(u, day, plan = null) {
-  const it = CHEST.items[Math.min(CHEST.items.length - 1, Math.floor(u * CHEST.items.length))];
-  return taskLaunched(it, day, plan) ? it : CHEST.items.find((x) => x.kind === CHEST_STANDIN);
+export const CHEST_PICK = 2;
+
+export const chestItemOf = (kind) => CHEST_V1.find((x) => x.kind === kind) || null;
+
+export function chestPick(u, day, plan = null, rule = 1) {
+  const list = rule >= 2 ? CHEST.items : CHEST_V1;
+  const it = list[Math.min(list.length - 1, Math.floor(u * list.length))];
+  if (rule >= 2) return it;
+  return taskLaunched(it, day, plan) ? it : CHEST_V1.find((x) => x.kind === CHEST_STANDIN);
 }
 
 const ALL = [...TASKS, ...POOL, ...RETIRED];
@@ -198,7 +205,9 @@ export function claimTask(rec, key, c) {
 
 export const claimableTasks = (rec, c) => boardTasks(rec).filter((t) => !rec.claimed.includes(t.key) && taskDone(rec, t.key, c));
 
-export const chestItem = (rec) => chestPick(rng(daySeed(rec.day, rec.seed, 0xc4e57))(), rec.day, rec.plan);
+export const chestItem = (rec) => chestPick(rng(daySeed(rec.day, rec.seed, 0xc4e57))(), rec.day, rec.plan, CHEST_PICK);
+
+export const chestItemKept = (rec, item) => !taskLaunched(item, rec.day, rec.plan);
 
 export const chestReady = (rec) => !rec.chest && boardTasks(rec).every((t) => rec.claimed.includes(t.key));
 

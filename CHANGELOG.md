@@ -6,6 +6,36 @@ All notable changes to this repository are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-23
+
+### Changed
+
+- The on-chain program tree is the one deployed on Solana mainnet-beta on 2026-11-20: the
+  mainnet program id `Cyz7fwhJomMxGtNtj752YcuoSvKASRaYTzrxhHu31FaC` in `declare_id!` and
+  `Anchor.toml`, and the filled `security.txt` (contact, source code, release, revision, audit
+  status). Its verifiable build reproduces the on-chain executable hash. The program logic and
+  the IDL are unchanged from v0.1.3.
+- Game rules follow the live game: token prices and token rewards scaled by
+  `BALANCE.price.factor` and `BALANCE.reward.factor`, withdrawal limits, Battle Pass seasons and
+  prices, daily tasks and chest, horses, the Squire bench and rest rule, fusion and invite rules.
+- README: deployed program table (program id, executable hash, binary SHA-256, upgrade
+  authority model), audit scope of the program, reproduction steps and the mainnet verifier
+  command. SECURITY.md names the deployed program ids.
+
+### Added
+
+- Rule modules of the Duel (`web/js/duelsim.js`) and of the Dungeon Descent training mode
+  (`web/js/descentsim.js`).
+- The verifier reports `SIG` for a draw checked by its drand signature only (a kind without a
+  replay rule, or whose public record cannot be read), and a pass with such draws says so.
+
+### Fixed
+
+- The verifier replays entries recorded before the price and reward factors with the rules of
+  their time (boxes, Duel wins, price checks), and replays the Vigil prize.
+
+Release notes: [docs/releases/v0.1.4.md](docs/releases/v0.1.4.md).
+
 ## [0.1.3] - 2026-11-19
 
 ### Changed
@@ -73,7 +103,8 @@ Release notes: [docs/releases/v0.1.1.md](docs/releases/v0.1.1.md).
 
 Release notes: [docs/releases/v0.1.0.md](docs/releases/v0.1.0.md).
 
-[Unreleased]: https://github.com/Crypto-of-Thrones/core/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/Crypto-of-Thrones/core/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.4
 [0.1.3]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.3
 [0.1.2]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Crypto-of-Thrones/core/releases/tag/v0.1.1
