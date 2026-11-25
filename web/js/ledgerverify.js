@@ -22,6 +22,9 @@ import { luckRoll } from './fieldluck.js';
 import { resolveRaid } from './pvprules.js';
 import { isFighter, checkDuelLog } from './duelsim.js';
 import { DUEL, DUEL_BASE } from './data.js';
+import { SQUIRE } from './data.js';
+import { squireFullPrice, usdRefAge, SQUIRE_USD_MAX_DAYS } from './squire.js';
+import { pagePromoPrice } from './pagepromo.js';
 import { boxContents } from './boxrules.js';
 import { createFight, fightResult, WORLD_BOSS } from './worldboss.js';
 import { VIGIL_DRAW, fightOutcome, vigilDrawId } from './raidrules.js';
@@ -94,6 +97,22 @@ function duelWinCap(ctx) {
   return stamp === undefined || PRE_PRICE_FACTOR_BALANCES.has(stamp) ? Math.max(now, milli(DUEL_BASE.win)) : now;
 }
 
+export const BALANCE_STAMP_FROM = Date.UTC(2026, 10, 13);
+export const JOUST_WIN_FROM = Date.UTC(2026, 10, 15);
+
+export function joustCharge(act, entries) {
+  const id = act ? dataOf(act).refs?.entry : undefined;
+  return typeof id === 'string' ? (entries || []).find((x) => dataOf(x).actionId === id && dataOf(x).stage === 'act') || null : act;
+}
+
+function joustWinCap(ctx, draw, info) {
+  const now = milli(spendBase(JOUST_BASE.entry) - spendBase(JOUST_BASE.pool));
+  const e = (ctx?.act && joustCharge(ctx.act, ctx.entries)) || ctx?.act || ctx?.entry;
+  const stamp = e ? dataOf(e).balance : undefined;
+  const old = stamp === undefined ? !!draw && roundTime(draw.round, info) < BALANCE_STAMP_FROM : PRE_PRICE_FACTOR_BALANCES.has(stamp);
+  return old ? Math.max(now, milli(JOUST_BASE.win)) : now;
+}
+
 function boxEras(ctx) {
   const e = ctx?.entry || ctx?.act;
   const stamp = e ? dataOf(e).balance : undefined;
@@ -102,8 +121,10 @@ function boxEras(ctx) {
 
 export const RULES = {
   summon: {
+    act: true,
     count: (a, r) => 3 * r.n,
     check: (u, a, r) => {
+      if (!Number.isSafeInteger(a.n) || a.n !== r.n) return false;
       const n = r.n;
       const res = summonBatch(n, normalizePity(r.pityBefore), slice(u, 0, 2 * n));
       return res.length === r.heroes.length && res.every((x, i) => x.key === r.heroes[i][1] && (u[2 * n + i] < BATTERY.chance) === r.heroes[i][2]);
@@ -204,8 +225,8 @@ export const RULES = {
       return out.storm === r.storm && out.total === r.total && json(out.gems) === json(r.gems);
     },
   },
-  hunt: { count: (a, r) => huntCount(r), check: (u, a, r, extra, draw, ctx) => huntCheck(u, r, ctx.info) },
-  away: { count: () => 1, check: (u, a, r, extra, draw, ctx) => huntCheck(u, r, ctx.info) },
+  hunt: { count: (a, r) => huntCount(r), check: (u, a, r, extra, draw, ctx) => huntCheck(u, r, ctx.info, draw) },
+  away: { count: () => 1, check: (u, a, r, extra, draw, ctx) => huntCheck(u, r, ctx.info, draw) },
   lotteryDraw: {
     id: (r) => drawId(r.day),
     count: () => LOTTERY.winners,
@@ -221,6 +242,7 @@ export const RULES = {
 
 
   joust: {
+    act: true,
     count: () => 1,
     check: (u, a, r, extra, draw, ctx) => {
       if (r.cancelled) return a.match !== undefined && r.match === a.match && r.side === a.side && r.seed === undefined && r.won === undefined && r.pay === undefined && noChestPay(ctx);
@@ -237,7 +259,8 @@ export const RULES = {
       const won = b ? !res.won : res.won;
       const from = b ? a.mine : a.rating;
       const rating = won ? from + JOUST.winRating : Math.max(JOUST.floor, from - JOUST.lossRating);
-      if (a.win !== undefined && !(Number.isSafeInteger(a.win) && a.win >= 0 && a.win <= milli(JOUST_BASE.win))) return false;
+      if (a.win !== undefined && !(Number.isSafeInteger(a.win) && a.win >= 0 && a.win <= joustWinCap(ctx, draw, ctx?.info))) return false;
+      if (a.win === undefined && !(draw && roundTime(draw.round, ctx?.info) < JOUST_WIN_FROM)) return false;
       const win = a.win ?? milli(JOUST_BASE.winBefore);
       const met = b
         ? { name: a.name, rating: a.rating, squad: squad.map((h) => [h.key, h.level]), ...joustGearRefs(squad.map((h) => h.gear || null)) }
@@ -496,6 +519,13 @@ const PRICES = {
   duel: (a, d) => (a.queue === 'join' ? milli(priced(DUEL.entry, d)) : a.match !== undefined ? 0 : undefined),
   fusion: (a, d) => milli(a.fusions * mintPrice(priced(FUSION.cost[a.rarity], d), a.mint === MINT_TIER.id ? a : null)),
   heroBox: (a, d) => (a.price === priced(HERO_BOX.price, d) ? a.boxes * milli(a.price) : NaN),
+  squire: (a) => {
+    if (!(a.usd?.usd > 0) || a.offer) return undefined;
+    if (a.usd.price !== SQUIRE.usd) return NaN;
+    const full = squireFullPrice(SQUIRE, 0, a.usd.usd);
+    if (a.promo) return a.promo.full === full ? milli(pagePromoPrice(full)) : NaN;
+    return milli(full);
+  },
 };
 
 export function priceOk(act) {
@@ -515,6 +545,40 @@ export function priceOk(act) {
     if (Number.isSafeInteger(want) && charged === want) return true;
   }
   return unknown ? null : false;
+}
+
+export const USD_DAY_CACHE_MS = 10 * 60e3;
+
+const USD_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const dayAfter = (day) => new Date(Date.parse(`${day}T00:00:00Z`) + 864e5).toISOString().slice(0, 10);
+
+export async function checkSquireUsd(usd, ts, getDay) {
+  const day = typeof usd?.day === 'string' && USD_DAY_RE.test(usd.day) ? usd.day : null;
+  if (!day || !Number.isFinite(ts)) return 'bad';
+  const age = usdRefAge(day, ts);
+  if (!(age >= 0 && age <= SQUIRE_USD_MAX_DAYS)) return 'bad';
+  if (typeof getDay !== 'function') return 'wait';
+  const read = async (d) => {
+    const r = await getDay(d);
+    return r && typeof r === 'object' ? r : null;
+  };
+  let rec;
+  try { rec = await read(day); } catch { return 'wait'; }
+  if (!rec) return 'bad';
+  const { hash, anchorTx, ...body } = rec;
+  if (typeof hash !== 'string' || hash !== usd.hash || rec.day !== day) return 'bad';
+  if (toHex(await sha256(utf8(JSON.stringify(body)))) !== hash) return 'bad';
+  if (rec.held != null || rec.avgUsd !== usd.usd) return 'bad';
+  const entryDay = new Date(ts).toISOString().slice(0, 10);
+  for (let d = day; d < entryDay;) {
+    d = dayAfter(d);
+    let next;
+    try { next = await read(d); } catch { return 'wait'; }
+    const clean = next && next.held == null && Number(next.avgUsd) > 0;
+    const inForce = !(Number(next?.publishedAt) > ts - USD_DAY_CACHE_MS);
+    if (clean && inForce) return 'bad';
+  }
+  return 'ok';
 }
 
 const passDrawCount = (items) => Math.max(1, (items || []).reduce((t, it) => t + (it.kind === 'summon' || it.kind === 'herobox' ? (it.n || 1) * 3 : 0), 0));
@@ -541,7 +605,10 @@ const heroTotal = (rolls) => (Array.isArray(rolls) ? rolls.reduce((t, x) => t + 
 
 const huntCount = (r) => 1 + (Array.isArray(r.dropRolls) ? Math.max(0, ...r.dropRolls.map((x) => (Number.isSafeInteger(x?.[2]) ? x[2] : 0))) : 0);
 
-async function huntCheck(u, r, info) {
+export const HUNT_ENGINE_FROM = Date.UTC(2026, 10, 14);
+
+async function huntCheck(u, r, info, draw) {
+  if (r.engine === undefined && !(draw && roundTime(draw.round, info) < HUNT_ENGINE_FROM)) return false;
   if (r.mult !== (r.fixed === true ? HUNT_MULT : spreadOf(u[0])) || splitWhy(r, PVP.share)) return false;
   if (r.gross !== undefined && r.earned !== Math.max(0, Math.floor(r.gross * r.mult * 1000))) return false;
   if (r.engine !== undefined && !checkHour(r, PVP.share).ok) return false;
@@ -668,6 +735,11 @@ export async function verifyEntry(e, entries, opts = {}) {
   if (e.redacted === true && !masked) return hidden();
   if (e.private === true) return done({ status: 'hidden', steps, why: 'private' });
   if (!masked && d.stage === 'act' && ownRules(d) && priceOk(e) === false) return bad('price');
+  if (!masked && d.stage === 'act' && d.kind === 'squire' && d.refs?.usd !== undefined) {
+    steps.usd = await checkSquireUsd(d.refs.usd, e.ts, opts.usdDay);
+    if (steps.usd === 'bad') return bad('usdRef');
+    if (steps.usd === 'wait') return done({ status: 'wait', steps, why: 'usdRef' });
+  }
   if (!d.draw && d.v === 2 && d.stage === 'reveal' && e.kind === 'duel') {
     if (masked) return hidden();
     const act = entries.find((x) => x.seq < e.seq && dataOf(x).actionId === d.actionId && dataOf(x).stage === 'act');
@@ -762,6 +834,7 @@ export async function verifyEntry(e, entries, opts = {}) {
       rulesNeed = rd.rules;
       continue;
     }
+    if (rule.act && !(act && joustCharge(act, entries)) && !entries.some((x) => x.seq === 1)) return done({ status: 'wait', steps, why: 'act', round });
     const ar = ad?.refs || {};
     const rr = rd.refs || {};
     let ok;

@@ -165,12 +165,13 @@ export async function verifyAccount(o, entries, { fetchFn, info, rulesRef = null
     rpc: o.rpc, anchorKey: o.anchorKey, programId: o.program, mainnet: !!o.mainnet, fetchFn, now,
     getEpoch: (n) => getJson(fetchFn, `${o.base}/api/ledger/tx/${n}`),
   });
+  const usdDay = (day) => getJson(fetchFn, `${o.base}/realm/index/day/${day}`);
   const duelLog = (match) => getJson(fetchFn, `${o.base}/duel/${encodeURIComponent(match)}/log`);
   const rows = [];
   const chain = await verifyChain(entries);
   const history = historyProblem(o, entries, head);
   for (const e of entries) {
-    const r = await verifyEntry(e, entries, { info, merkle, anchor, rulesRef, duelLog }).catch((err) => ({ status: 'fail', why: err.message, steps: {} }));
+    const r = await verifyEntry(e, entries, { info, merkle, anchor, rulesRef, usdDay, duelLog }).catch((err) => ({ status: 'fail', why: err.message, steps: {} }));
     const why = (r.why === 'anchor' || r.steps.anchor === 'pending' || r.steps.anchor === 'unchecked' ? `anchor ${r.anchor?.status}: ${r.anchor?.why}` : r.why)
       || (r.merkle?.status === 'bad' ? `merkle: ${r.merkle.why}` : undefined)
       || (r.rules ? rulesHint(r.rules) : undefined);
@@ -194,6 +195,7 @@ export function report(o, entries, v) {
   }
   const tally = Object.entries(v.counts).map(([k, n]) => `${n} ${k}`).join(', ') || 'no entries';
   const why = (v.reasons || []).map(reasonText).join('; ');
+  lines.push(replayLine(replayTally(v.rows)));
   lines.push(`${v.ok ? (v.final ? 'PASS' : `PASS, NOT FINAL (${why || 'not every entry passed'})`) : 'FAIL'}: ${tally}`);
   const w = hiddenWarning(v.rows);
   if (w) lines.push(w);
@@ -204,6 +206,28 @@ export function hiddenWarning(rows) {
   const k = rows.filter((x) => x.label === 'HIDDEN').length;
   if (!k) return null;
   return `WARNING: ${k} hidden ${k === 1 ? 'entry was' : 'entries were'} NOT verified: their data is withheld or masked by the public view, so a dishonest server could have hidden a draw or a payment there (a drand proof they show was still checked). Only the account's own Statement verifies them in full.`;
+}
+
+export function noReplayLine(rows) {
+  const replayed = rows.filter((x) => x.steps?.rule === 'ok').length;
+  const skipped = rows.filter((x) => x.label === 'RULES' || x.label === 'SIG');
+  if (replayed || !skipped.length) return null;
+  const commits = [...new Set(skipped.filter((x) => x.rules).map((x) => x.rules))];
+  const how = commits.length
+    ? `run the verifier from the core release whose core-manifest.json "rules" is ${commits.join(' or ')}, or pass --rules-ref any to replay them with this code`
+    : 'no rule replayed any of them (signature only)';
+  return `NOT VERIFIED: 0 of ${skipped.length} ${skipped.length === 1 ? 'draw entry' : 'draw entries'} replayed, so no outcome was checked: ${how} (exit code 3)`;
+}
+
+export function replayTally(rows) {
+  const replayed = rows.filter((x) => x.steps?.rule === 'ok').length;
+  const signatureOnly = rows.filter((x) => x.label === 'SIG').length;
+  const otherRules = rows.filter((x) => x.label === 'RULES').length;
+  return { replayed, total: replayed + signatureOnly + otherRules, signatureOnly, otherRules };
+}
+
+export function replayLine(t) {
+  return `replayed ${t.replayed} of ${t.total} ${t.total === 1 ? 'draw entry' : 'draw entries'} (${t.signatureOnly} signature only, ${t.otherRules} other rules)`;
 }
 
 export async function main(argv, deps = {}) {
@@ -227,8 +251,10 @@ export async function main(argv, deps = {}) {
   const rulesRef = o.rulesRef ?? (deps.rulesRef !== undefined ? deps.rulesRef : codeRef());
   const v = await verifyAccount(o, entries, { fetchFn, info: deps.info, rulesRef, now, head });
   const warning = hiddenWarning(v.rows);
-  out(o.json ? JSON.stringify({ pid: o.pid, ok: v.ok, final: v.final, reasons: v.reasons, ...(warning ? { warning } : {}), chain: v.chain, history: v.history, counts: v.counts, entries: v.rows }, null, 2) : report(o, entries, v));
-  return v.ok ? 0 : 1;
+  const noReplay = v.ok ? noReplayLine(v.rows) : null;
+  out(o.json ? JSON.stringify({ pid: o.pid, ok: v.ok, final: v.final, reasons: v.reasons, ...(warning ? { warning } : {}), ...(noReplay ? { noReplay } : {}), replay: replayTally(v.rows), chain: v.chain, history: v.history, counts: v.counts, entries: v.rows }, null, 2)
+    : `${report(o, entries, v)}${noReplay ? `\n${noReplay}` : ''}`);
+  return v.ok ? (noReplay ? 3 : 0) : 1;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) process.exitCode = await main(process.argv.slice(2));

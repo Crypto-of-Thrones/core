@@ -61,3 +61,18 @@ export function squireStep(heroes, { cap, slots = 0, ready = 0.8, maxEnergy, max
 }
 
 export const squirePrice = (cfg, sold) => cfg.base + cfg.step * sold;
+
+export const SQUIRE_USD_MAX_DAYS = 2;
+
+export const usdRefAge = (day, now) => (Date.parse(new Date(now).toISOString().slice(0, 10)) - Date.parse(`${day}T00:00:00Z`)) / 864e5;
+
+export const usdRefFresh = (ref, now) => {
+  const age = typeof ref?.day === 'string' ? usdRefAge(ref.day, now) : NaN;
+  return age >= 0 && age <= SQUIRE_USD_MAX_DAYS;
+};
+
+export function squireFullPrice(cfg, sold, usdRef) {
+  const tokens = cfg.usd / usdRef;
+  if (!(cfg.usd > 0 && usdRef > 0 && Number.isFinite(tokens) && tokens >= 1)) return squirePrice(cfg, sold);
+  return Math.ceil(Math.round(tokens * 1e6) / 1e6);
+}

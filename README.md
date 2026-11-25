@@ -56,8 +56,9 @@ and check them against the public record, without trusting the game servers.
 
 ## Quickstart
 
-Requirements: [Node.js](https://nodejs.org) 20 or later. No `npm install` is needed: the code has
-no dependencies besides the vendored, pinned BLS library in `web/vendor/noble-bls/`.
+Requirements: [Node.js](https://nodejs.org) 20.19+ or 22+. No `npm install` is needed: the code has
+no dependencies besides the vendored, pinned BLS library in `web/vendor/noble-bls/`. The root
+`package.json` only marks every `.js` file as an ES module.
 
 ```sh
 git clone https://github.com/Crypto-of-Thrones/core.git
@@ -69,25 +70,27 @@ node tools/replay-hunt-test.mjs
 # 2. Replay one hunt hour (a ledger entry or its engine input, as JSON)
 node tools/replay-hunt.mjs hour.json
 
-# 3. Verify the whole public ledger of an account (40 hex characters) on mainnet
-node tools/verify/verify.mjs <account> --mainnet --base https://api.cot.gg \
+# 3. Verify the whole public ledger of an account on mainnet (<audit-id>: the account's public
+#    audit id, 32 characters of a-z and 2-7, as in the game's public audit links)
+node tools/verify/verify.mjs <audit-id> --mainnet --base https://api.cot.gg \
   --rpc https://api.mainnet-beta.solana.com --program Cyz7fwhJomMxGtNtj752YcuoSvKASRaYTzrxhHu31FaC
 
 # 3b. The same on the public devnet beta
-node tools/verify/verify.mjs <account> --base https://api-beta.cot.gg --rpc https://api.devnet.solana.com
+node tools/verify/verify.mjs <audit-id> --base https://api-beta.cot.gg --rpc https://api.devnet.solana.com
 ```
 
 `verify.mjs` downloads the account's public ledger, checks the hash chain, the Merkle proof of
-every entry, the anchoring transaction on Solana, every drand beacon, and re-runs the rule of each
-entry. It checks every entry to the end, prints one line per entry and a summary, and then exits
+every entry (only with `--acct`: without it the `merkle` step is reported as `skip`), the
+anchoring transaction on Solana, every drand beacon, and re-runs the rule of each entry. It checks every entry to the end, prints one line per entry and a summary, and then exits
 with code 1 if any check failed (0 when everything passed, 2 on a usage error or when the ledger
-cannot be read). Useful flags:
+cannot be read, 3 when every check passed but no draw was replayed, see below). Useful flags:
 
 | Flag | Meaning |
 |---|---|
 | `--base URL` | The game server that serves the public ledger (`https://api.cot.gg` on mainnet, `https://api-beta.cot.gg` for the beta) |
 | `--rpc URL` | Any Solana JSON-RPC endpoint; the anchors are read on chain through it |
 | `--mainnet` | Mainnet rules: `--rpc` is required and only `settle_epoch` anchors are accepted |
+| `--acct ACCT` | Optional: the account's own id (40 hex characters), needed only for the Merkle step; the public proof leaves it out |
 | `--file entries.json` | Verify a saved copy of the ledger instead of downloading it |
 | `--from YYYY-MM-DD`, `--days N` | Limit the time window |
 | `--known SEQ:HASH` | Pin an entry you saved earlier; a rewritten history then fails |
@@ -110,7 +113,19 @@ A run where every check passed but something is still open ends with `PASS, NOT 
 reason: entries recorded under other rules (their replay was not run), anchors still pending or
 not read on chain, or entries still waiting for a step. With `--json` the same reasons are in the
 `reasons` array (`code` `rules` with the `commits`, `anchors` with `pending` and `unchecked`, or
-`wait`). The exit code is 0 for any pass, final or not.
+`wait`). The exit code is 0 for any pass, final or not, with one exception: when the account
+has draws and none of them was replayed (all recorded under other rules, or checked by signature
+only), no outcome was verified, so the run prints a `NOT VERIFIED: 0 of N draw entries replayed` line
+(`noReplay` in `--json`) and exits with code 3. Each server deploy records its own commit, so a
+release often matches none of them: re-run with the release named in that line, or with
+`--rules-ref any`.
+
+Read the `replayed X of N draw entries (Y signature only, Z other rules)` line that every run prints
+before its verdict (`replay` in `--json`, with `replayed`, `total`, `signatureOnly` and
+`otherRules`). N counts ledger entries that carry a draw, so a paid act and its reveal are 2
+entries. Exit code 0 only says that every check that ran passed: a run that replayed 1 of
+50 draw entries also exits 0. Only the X replayed entries had their outcome recomputed; the others were
+checked by their drand signature or left for the release of their rules.
 
 To build the on-chain program reproducibly (needs Docker and Rust):
 
@@ -268,7 +283,8 @@ commit id. The `auditors` field says that no external audit has been completed y
 ## Verification pipeline
 
 Every entry goes through the same steps, reported in this order (`verifyEntry` in
-`web/js/ledgerverify.js`). A step that does not apply to an entry is reported as `skip`. Every
+`web/js/ledgerverify.js`). A step that does not apply to an entry is reported as `skip`; the
+`merkle` step runs only when `--acct` is given, and is `skip` otherwise. Every
 entry is checked; the run ends with a summary and exits with code 1 if any entry failed.
 
 ```mermaid

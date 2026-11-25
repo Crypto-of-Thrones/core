@@ -6,6 +6,41 @@ All notable changes to this repository are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-11-25
+
+### Changed
+
+- The Squire act carries a US$ reference (`refs.usd`). The verifier checks it against the
+  published daily price record (hash, average price, age of at most 2 days, no newer clean record
+  in force) and recomputes the Squire price from it, with the page promotion price when the act
+  names one.
+- Requirements are now Node.js 20.19+ or 22+. A new root `package.json` with
+  `{ "type": "module" }` loads every `.js` file as an ES module. There are still no dependencies.
+- The on-chain program is unchanged from v0.1.4.
+
+### Added
+
+- Page promotion price module (`web/js/pagepromo.js`), imported by the verifier.
+- Every run prints `replayed X of N draw entries (Y signature only, Z other rules)` before its
+  verdict, and `--json` carries the same counts in `replay`.
+
+### Fixed
+
+- A hunt or away reveal from 2026-11-14 00:00 UTC on must publish `refs.engine` (report 4).
+- The summon act's `n` must be a safe integer equal to the reveal's `n` (report 5).
+- The Joust win is capped by the current entry fee minus the pool share; the older fixed cap
+  applies only to entries charged before the price change (report 6).
+- Summon and Joust reveals whose paid act is not in a partial download are reported as `wait`
+  instead of replayed without it.
+- A passing run with draw entries and no replayed draw prints `NOT VERIFIED`, and exits with
+  code 3 instead of 0 (R1).
+- The export tool normalizes allowlist paths before its deny and exclude checks (R2) and denies
+  the anti-cheat tools (R3). The exported files are unchanged by these fixes.
+- The README examples take the public audit id, and the README documents that the Merkle step
+  needs `--acct` (R1, R6).
+
+Release notes: [docs/releases/v0.1.6.md](docs/releases/v0.1.6.md).
+
 ## [0.1.5] - 2026-11-25
 
 ### Changed

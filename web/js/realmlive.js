@@ -1,6 +1,12 @@
 import { BALANCE } from './balance.js';
 
-export const REALM_LIVE = { emission: 1, index: 1, charge: 0 };
+export const REALM_LIVE = { emission: 1, index: 1, charge: 0, usd: null, usdOff: false };
+
+export function usdRefOf(r) {
+  const usd = Number(r?.usd);
+  return usd > 0 && Number.isFinite(usd) && typeof r?.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.day)
+    && typeof r?.hash === 'string' && /^[0-9a-f]{64}$/.test(r.hash) ? { usd, day: r.day, hash: r.hash } : null;
+}
 
 export const FIXED_PRICES = true;
 
@@ -55,6 +61,8 @@ export const liveSpend = (obj, keys = null, { deep = false } = {}) => live(obj, 
 export function applyRealmIndex(rec) {
   const cot = Number(rec?.reserves?.cot), sol = Number(rec?.reserves?.sol);
   Object.assign(POOL_SPOT, cot > 0 && sol > 0 && Number.isFinite(cot) && Number.isFinite(sol) ? { cot, sol } : { cot: 0, sol: 0 });
+  REALM_LIVE.usd = usdRefOf(rec?.usd);
+  REALM_LIVE.usdOff = rec?.usdOff === true;
   const ix = Number(rec?.index);
   if (!(ix > 0 && ix <= 1)) return false;
   if (FIXED_PRICES) {

@@ -419,6 +419,7 @@ export const FIELD_CAP = 15;
 export const ACTIVE_CAP = 15;
 
 export const SQUIRE = {
+  usd: 150,
   base: 400000,
   step: 0,
   supply: 1000,
