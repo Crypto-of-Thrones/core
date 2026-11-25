@@ -304,3 +304,5 @@ export function runSpeedupPrice(run, now = Date.now()) {
 export const runRests = (rest, now = Date.now()) => (Array.isArray(rest) ? rest.filter((x) => Number.isFinite(x) && x > now).sort((a, b) => a - b) : []);
 
 export const slotsUsed = (d, now = Date.now()) => (d?.runs?.length || 0) + runRests(d?.rest, now).length;
+
+export const runCap = (pass) => (pass === true ? DUNGEON.runs : DUNGEON.freeRuns);

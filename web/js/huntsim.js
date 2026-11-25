@@ -1,4 +1,4 @@
-import { HEROES, RARITIES, FARM, SUMMON_COST, OUTSIDE_REST, BATTERY, FIELD_CAP, SQUIRE, SHIELD_HIT, shieldWear, skillMods, maxShieldOf } from './data.js';
+import { HEROES, RARITIES, FARM, SUMMON_COST, OUTSIDE_REST, BATTERY, FIELD_CAP, SQUIRE, SHIELD_HIT, shieldWear, skillMods, maxShieldOf, legMintMult } from './data.js';
 import { payoutMult } from './realmlive.js';
 import { squireStep } from './squire.js';
 import { maxEnergyOf } from './hunt.js';
@@ -100,7 +100,7 @@ export function farmPerEnergyOf(h, mult = 1) {
   const r = HEROES[h.key].rarity;
   const perHour = SUMMON_COST / (FARM.days[r] * 24);
   const level = 1 + Math.min(FARM.levelCap, FARM.perLevel * (h.level - 1));
-  return (perHour / 60) * (1 / OUTSIDE_REST + 1 / FARM.huntDrain) * level * mult * payoutMult() * trialFarmMult(h);
+  return (perHour / 60) * (1 / OUTSIDE_REST + 1 / FARM.huntDrain) * level * mult * payoutMult() * trialFarmMult(h) * legMintMult(h);
 }
 
 export function killPayOf(h, mult = 1) {

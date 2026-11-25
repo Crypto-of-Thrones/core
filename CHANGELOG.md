@@ -6,6 +6,37 @@ All notable changes to this repository are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-11-25
+
+### Changed
+
+- Game rules follow the live game: withdrawal minimum; referral, invite and free spin
+  thresholds; Battle Pass gates on the second and third Dungeon and voyage slot and on the daily
+  raid limit; a new mint tier for new mercenaries; mercenaries on the Farm; ranged mercenaries
+  and duel posts in the hunt; Squire sends in the hunt mission; achievement ladders gated on the
+  first spend; banned realms out of prize draws; PvP Protect lock after the PvP opening; random
+  world boss room codes.
+- The public view masks account ids embedded in public strings, and the verifier reports
+  redacted or shortened rows as hidden instead of verifying them.
+- The on-chain program is unchanged from v0.1.4.
+
+### Added
+
+- PvP Ark rule module (`web/js/pvpark.js`) and market rules (`web/js/marketrules.js`), imported
+  by the verifier.
+- The verifier replays a Duel from its published fight log; a Duel with no readable log is
+  `SIG`, never `PASS`.
+
+### Fixed
+
+- The anchor cache is keyed by the whole proof, not the epoch only, so a second proof of the same
+  hour never reuses the on-chain check of the first one.
+- A draw rebind is accepted only from the single speed-up of the same send, at most one per
+  send, and a rebind on a masked row never supports a `PASS`.
+- Audit reads retry on HTTP 503 with `Retry-After`.
+
+Release notes: [docs/releases/v0.1.5.md](docs/releases/v0.1.5.md).
+
 ## [0.1.4] - 2026-11-23
 
 ### Changed

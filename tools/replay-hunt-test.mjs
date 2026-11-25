@@ -264,4 +264,17 @@ await test('the engine module to publish has no secrets and stays inside web/js'
   assert.ok(CASTLES.length > 2, 'the castle of the golden rules exists');
 });
 
+await test('a leg counts the mercenaries the Squire sends, without changing the pay', async () => {
+  const bench = () => Array.from({ length: 3 }, (_, i) => {
+    const h = { id: `s${i}`, key: keys[i], level: 1, status: 'idle' };
+    return { ...h, energy: maxEnergyOf(h), shield: maxShieldOf(h) };
+  });
+  const on = runLeg(legInput(bench(), T0, T0 + 10 * 60e3, { live: true, squire: true }), bench());
+  assert.ok(on.sent > 0, 'the Squire sent a rested mercenary to the hunt');
+  const off = runLeg(legInput(bench(), T0, T0 + 10 * 60e3, { live: true, squire: false }), bench());
+  assert.equal(off.sent, undefined, 'no Squire, nothing sent');
+  const input = legInput(bench(), T0, T0 + 10 * 60e3, { live: true, squire: true });
+  assert.equal(runLeg(input).earned, on.earned);
+});
+
 console.log(`${n} replay-hunt tests passed`);

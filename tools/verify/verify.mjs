@@ -11,10 +11,11 @@ export { checkAnchor };
 
 const DAY_MS = 86400e3;
 const ACCT_RE = /^[0-9a-f]{40}$/;
+const PID_RE = /^[a-z2-7]{32}$/;
 
 export function parseArgs(argv) {
   const o = { base: SERVER_URL, days: 400, json: false, mainnet: MAINNET, program: COT_PROGRAM_ID };
-  const flags = { '--base': 'base', '--rpc': 'rpc', '--anchor-key': 'anchorKey', '--from': 'from', '--days': 'days', '--file': 'file', '--rules-ref': 'rulesRef', '--program': 'program', '--known': 'known' };
+  const flags = { '--acct': 'acct', '--base': 'base', '--rpc': 'rpc', '--anchor-key': 'anchorKey', '--from': 'from', '--days': 'days', '--file': 'file', '--rules-ref': 'rulesRef', '--program': 'program', '--known': 'known' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--json') o.json = true;
@@ -23,10 +24,11 @@ export function parseArgs(argv) {
       if (a === '--days' || a === '--from') o.limited = true;
       if (i + 1 >= argv.length) return { error: `${a} needs a value` };
       o[flags[a]] = argv[++i];
-    } else if (!a.startsWith('--') && !o.acct) o.acct = a;
+    } else if (!a.startsWith('--') && !o.pid) o.pid = a;
     else return { error: `unknown argument ${a}` };
   }
-  if (!o.acct || !ACCT_RE.test(o.acct)) return { error: 'the account must be 40 hex characters' };
+  if (!o.pid || !PID_RE.test(o.pid)) return { error: 'the account must be its public audit id (32 characters of a-z and 2-7)' };
+  if (o.acct !== undefined && !ACCT_RE.test(o.acct)) return { error: '--acct must be 40 hex characters' };
   o.days = Number(o.days);
   if (!Number.isSafeInteger(o.days) || o.days < 1) return { error: '--days must be a positive integer' };
   if (o.from && !/^\d{4}-\d{2}-\d{2}$/.test(o.from)) return { error: '--from must be YYYY-MM-DD' };
@@ -80,22 +82,33 @@ export function codeRef(dir = fileURLToPath(new URL('../..', import.meta.url))) 
   }
 }
 
-async function getJson(fetchFn, url) {
-  const res = await fetchFn(url);
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  return res.json();
+const sleepMs = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const TRIES_503 = 5;
+
+async function getJson(fetchFn, url, sleep = sleepMs) {
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetchFn(url);
+    if (res.status === 503 && attempt < TRIES_503) {
+      const s = Number.parseInt(res.headers?.get?.('retry-after'), 10);
+      await sleep(1000 * Math.min(30, Math.max(1, Number.isFinite(s) ? s : 5)));
+      continue;
+    }
+    if (res.status === 404) return null;
+    if (res.status === 503) throw new Error(`${url}: HTTP 503 after ${TRIES_503} attempts (server is finishing a deploy; run again in a few minutes)`);
+    if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+    return res.json();
+  }
 }
 
-export async function download(o, { fetchFn, now }) {
-  const head = await getJson(fetchFn, `${o.base}/audit/${o.acct}/head`);
+export async function download(o, { fetchFn, now, sleep }) {
+  const head = await getJson(fetchFn, `${o.base}/audit/${o.pid}/head`, sleep);
   const top = head?.head?.seq || 0;
   const bySeq = new Map();
   const stop = o.from ? Date.parse(`${o.from}T00:00:00Z`) : -Infinity;
   for (let i = 0, t = Math.floor(now / DAY_MS) * DAY_MS; i < o.days && t >= stop; i++, t -= DAY_MS) {
     const day = new Date(t).toISOString().slice(0, 10);
     for (let after = 0, pages = 0; pages < 1000; pages++) {
-      const r = await getJson(fetchFn, `${o.base}/audit/${o.acct}/day/${day}${after ? `?after=${after}` : ''}`);
+      const r = await getJson(fetchFn, `${o.base}/audit/${o.pid}/day/${day}${after ? `?after=${after}` : ''}`, sleep);
       for (const e of r?.entries || []) bySeq.set(e.seq, e);
       if (!Number.isSafeInteger(r?.next) || r.next <= after) break;
       after = r.next;
@@ -118,6 +131,7 @@ export function notFinalReasons(rows) {
   if (rules.length) reasons.push({ code: 'rules', count: rules.length, commits: [...new Set(rules.map((x) => x.rules))] });
   if (n('PEND') + n('UNCHECKED')) reasons.push({ code: 'anchors', count: n('PEND') + n('UNCHECKED'), pending: n('PEND'), unchecked: n('UNCHECKED') });
   if (n('SIG')) reasons.push({ code: 'sig', count: n('SIG') });
+  if (n('HIDDEN')) reasons.push({ code: 'hidden', count: n('HIDDEN') });
   if (n('WAIT')) reasons.push({ code: 'wait', count: n('WAIT') });
   return reasons;
 }
@@ -125,6 +139,7 @@ export function notFinalReasons(rows) {
 function reasonText(x) {
   if (x.code === 'rules') return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} recorded under other rules (${x.commits.join(', ')}), rule replay not run: re-check them with the core release of those rules or --rules-ref any`;
   if (x.code === 'sig') return `${x.count} ${x.count === 1 ? 'draw' : 'draws'} checked by drand signature only: no rule replayed the outcome (a kind without a replay rule, or its public record not readable here)`;
+  if (x.code === 'hidden') return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} hidden by the public view (wallets shortened or data withheld), not verified here: the account verifies them in full in its Statement`;
   if (x.code === 'anchors') return `${x.count} ${x.count === 1 ? 'anchor' : 'anchors'} not final (${x.pending} pending, ${x.unchecked} not read on chain)`;
   return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} still waiting for a check`;
 }
@@ -133,21 +148,29 @@ export function rowLabel(r) {
   if (FAIL.has(r.status)) return 'FAIL';
   if (r.status === 'rules') return 'RULES';
   if (r.status === 'sig') return 'SIG';
+  if (r.status === 'hidden') return 'HIDDEN';
   if (r.status !== 'ok') return 'WAIT';
   return r.steps.anchor === 'ok' ? 'PASS' : r.steps.anchor === 'pending' ? 'PEND' : 'UNCHECKED';
 }
 
 export async function verifyAccount(o, entries, { fetchFn, info, rulesRef = null, now = Date.now(), head = null } = {}) {
-  const merkle = proofChecker(o.acct, (acct, seq) => getJson(fetchFn, `${o.base}/api/ledger/proof/${acct}/${seq}`).catch(() => null));
+  let leafHidden = false;
+  const check = o.acct ? proofChecker(o.acct, (acct, seq) => getJson(fetchFn, `${o.base}/api/ledger/proof/${o.pid}/${seq}`)
+    .then((p) => {
+      if (p?.leaf && p.leaf.seqFrom === undefined) { leafHidden = true; return null; }
+      return p?.leaf ? { ...p, acct, leaf: { ...p.leaf, acct } } : p;
+    }).catch(() => null)) : undefined;
+  const merkle = check ? async (e, all) => { const r = await check(e, all); return leafHidden ? 'skip' : r; } : undefined;
   const anchor = anchorChecker({
     rpc: o.rpc, anchorKey: o.anchorKey, programId: o.program, mainnet: !!o.mainnet, fetchFn, now,
     getEpoch: (n) => getJson(fetchFn, `${o.base}/api/ledger/tx/${n}`),
   });
+  const duelLog = (match) => getJson(fetchFn, `${o.base}/duel/${encodeURIComponent(match)}/log`);
   const rows = [];
   const chain = await verifyChain(entries);
   const history = historyProblem(o, entries, head);
   for (const e of entries) {
-    const r = await verifyEntry(e, entries, { info, merkle, anchor, rulesRef }).catch((err) => ({ status: 'fail', why: err.message, steps: {} }));
+    const r = await verifyEntry(e, entries, { info, merkle, anchor, rulesRef, duelLog }).catch((err) => ({ status: 'fail', why: err.message, steps: {} }));
     const why = (r.why === 'anchor' || r.steps.anchor === 'pending' || r.steps.anchor === 'unchecked' ? `anchor ${r.anchor?.status}: ${r.anchor?.why}` : r.why)
       || (r.merkle?.status === 'bad' ? `merkle: ${r.merkle.why}` : undefined)
       || (r.rules ? rulesHint(r.rules) : undefined);
@@ -162,7 +185,7 @@ export async function verifyAccount(o, entries, { fetchFn, info, rulesRef = null
 }
 
 export function report(o, entries, v) {
-  const lines = [`account ${o.acct}: ${entries.length} entries${entries.length ? `, seq ${entries[0].seq} to ${entries.at(-1).seq}` : ''}`];
+  const lines = [`account ${o.pid}: ${entries.length} entries${entries.length ? `, seq ${entries[0].seq} to ${entries.at(-1).seq}` : ''}`];
   if (!v.chain.ok) lines.push(`FAIL hash chain: ${v.chain.why} at seq ${v.chain.at ?? '?'}`);
   if (v.history) lines.push(`FAIL history: ${v.history.why}`);
   for (const r of v.rows) {
@@ -172,7 +195,15 @@ export function report(o, entries, v) {
   const tally = Object.entries(v.counts).map(([k, n]) => `${n} ${k}`).join(', ') || 'no entries';
   const why = (v.reasons || []).map(reasonText).join('; ');
   lines.push(`${v.ok ? (v.final ? 'PASS' : `PASS, NOT FINAL (${why || 'not every entry passed'})`) : 'FAIL'}: ${tally}`);
+  const w = hiddenWarning(v.rows);
+  if (w) lines.push(w);
   return lines.join('\n');
+}
+
+export function hiddenWarning(rows) {
+  const k = rows.filter((x) => x.label === 'HIDDEN').length;
+  if (!k) return null;
+  return `WARNING: ${k} hidden ${k === 1 ? 'entry was' : 'entries were'} NOT verified: their data is withheld or masked by the public view, so a dishonest server could have hidden a draw or a payment there (a drand proof they show was still checked). Only the account's own Statement verifies them in full.`;
 }
 
 export async function main(argv, deps = {}) {
@@ -180,7 +211,7 @@ export async function main(argv, deps = {}) {
   const fetchFn = deps.fetchFn || ((...a) => globalThis.fetch(...a));
   const o = parseArgs(argv);
   if (o.error) {
-    out(`error: ${o.error}\nusage: node tools/verify/verify.mjs <acct> [--base URL] [--rpc URL] [--anchor-key PUBKEY] [--mainnet] [--program ID] [--known SEQ:HASH] [--from YYYY-MM-DD] [--days N] [--file entries.json] [--json]`);
+    out(`error: ${o.error}\nusage: node tools/verify/verify.mjs <pid> [--acct ACCT] [--base URL] [--rpc URL] [--anchor-key PUBKEY] [--mainnet] [--program ID] [--known SEQ:HASH] [--from YYYY-MM-DD] [--days N] [--file entries.json] [--json]`);
     return 2;
   }
   const now = deps.now ?? Date.now();
@@ -195,7 +226,8 @@ export async function main(argv, deps = {}) {
   }
   const rulesRef = o.rulesRef ?? (deps.rulesRef !== undefined ? deps.rulesRef : codeRef());
   const v = await verifyAccount(o, entries, { fetchFn, info: deps.info, rulesRef, now, head });
-  out(o.json ? JSON.stringify({ acct: o.acct, ok: v.ok, final: v.final, reasons: v.reasons, chain: v.chain, history: v.history, counts: v.counts, entries: v.rows }, null, 2) : report(o, entries, v));
+  const warning = hiddenWarning(v.rows);
+  out(o.json ? JSON.stringify({ pid: o.pid, ok: v.ok, final: v.final, reasons: v.reasons, ...(warning ? { warning } : {}), chain: v.chain, history: v.history, counts: v.counts, entries: v.rows }, null, 2) : report(o, entries, v));
   return v.ok ? 0 : 1;
 }
 

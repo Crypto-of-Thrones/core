@@ -1,7 +1,7 @@
 import { t, gamePage } from './i18nsafe.js';
 import { TICKER_DEFAULT } from './ticker.js';
 import { MAINNET, SERVER_MODE } from './buildprofile.js';
-import { cotPrice, indexed, livePrices, livePayouts, liveIndexed, liveSpend, liveIndexOnly, indexOnly, spendBase, REWARD_FACTOR, rewardBase } from './realmlive.js';
+import { cotPrice, roundCot, indexed, livePrices, livePayouts, liveIndexed, liveSpend, liveIndexOnly, indexOnly, spendBase, REWARD_FACTOR, rewardBase } from './realmlive.js';
 import { BALANCE } from './balance.js';
 
 export const TOKEN = gamePage ? t('net.token', null, 'tokens') : TICKER_DEFAULT;
@@ -29,9 +29,9 @@ export const FARM_ROI = {
   peakDays: 7,
   lockPct: 70,
   lockFeePct: 50,
-  fromX: 1,
-  kneeX: 1.5,
-  kneePct: 50,
+  fromX: 1.5,
+  kneeX: 1.75,
+  kneePct: 47.5,
   toX: 2,
   capPct: 95,
   solWeightPct: 100,
@@ -46,7 +46,7 @@ export const TRIAL = Object.freeze({
   chestCap: rewardBase(15_000),
   releasePct: 40,
   afterDays: 7,
-  wheelMinInvest: spendBase(25_000),
+  wheelMinInvest: spendBase(2_500),
 });
 
 const it = (kind, n, extra) => ({ kind, n, ...extra });
@@ -64,7 +64,7 @@ export const PASS = {
     { key: 'spin', icon: 'star', label: t('data.pass.spin.label', null, 'Spin the wheel'), hint: t('data.pass.spin.hint', null, 'Use your free daily wheel spin in Claims.') },
     { key: 'share', icon: 'trophy', label: t('data.pass.share.label', null, 'Share a feat'), hint: t('data.pass.share.hint', null, 'Share any achievement with your invite link.') },
   ],
-  target: spendBase(1_200_000),
+  target: spendBase(425_000),
   rewards: [
     { paid: [it('potion', 50)], free: null },
     { paid: [it('ticket', 30)], free: null },
@@ -96,7 +96,7 @@ export const PASS = {
 export const LEVEL_PRICE = 2000;
 export const LEVEL_RARITY_PRICE = { common: 2000, uncommon: 3500, rare: 6000, epic: 10000, legendary: 18000, mythic: 30000 };
 export const LEVEL_MAX = { common: 20, uncommon: 25, rare: 30, epic: 35, legendary: 40, mythic: 50 };
-export const levelPrice = (rarity, level) => (LEVEL_RARITY_PRICE[rarity] ?? cotPrice(LEVEL_PRICE)) * Math.max(1, level);
+export const levelPrice = (rarity, level, h = null) => mintPrice((LEVEL_RARITY_PRICE[rarity] ?? cotPrice(LEVEL_PRICE)) * Math.max(1, level), h);
 export const LORD_XP_WAVE = 1;
 export const LORD_XP_BOSS = 5;
 
@@ -117,6 +117,19 @@ export const PITY = [
 
 export const SUMMON_COST = BALANCE.summon.cost;
 export const summonCost = () => cotPrice(SUMMON_COST);
+export const MINT_TIER = { id: 2, factor: 0.1, plate: '1k', convertAt: Date.UTC(2026, 11, 25, 15) };
+const mintField = (h) => h?.mint === MINT_TIER.id;
+export const isMintTier = (h, now = Date.now()) => mintField(h) || (!!h && !h.trial && now >= MINT_TIER.convertAt);
+export const mintFarmMult = (h, now) => (isMintTier(h, now) ? MINT_TIER.factor : 1);
+export const legMintMult = (h) => (mintField(h) ? MINT_TIER.factor : 1);
+export const mintConvert = (h, at) => {
+  if (h && !h.trial && !mintField(h) && at >= MINT_TIER.convertAt) h.mint = MINT_TIER.id;
+  return h;
+};
+export const mintDaysLeft = (now = Date.now()) => Math.max(0, Math.ceil((MINT_TIER.convertAt - now) / 86400e3));
+export const mintPrice = (price, h) => (isMintTier(h) && price > 0 ? roundCot(price * MINT_TIER.factor) : price);
+export const mintCost = () => cotPrice(SUMMON_COST * MINT_TIER.factor);
+export const summonPrice = (from) => (from === 'war' ? summonCost() : mintCost());
 export const SUMMON_BATCHES = [1, 5, 10, 15];
 
 export const FARM_BASE_DAYS = { common: 90, uncommon: 80, rare: 60, epic: 40, legendary: 30, mythic: 20 };
@@ -424,6 +437,8 @@ export const PVP = {
   protect: 4,
   vulnerable: 6,
   newbie: 24,
+  openAt: Date.UTC(2026, 10, 25),
+  protectLock: 6,
   list: 5,
   listEvery: 10,
   rerolls: 15,
@@ -431,6 +446,7 @@ export const PVP = {
   take: BALANCE.pvp.take,
   toRaider: BALANCE.pvp.toRaider,
   attacks: 20,
+  attacksFree: 5,
   perRaid: 10,
   burst: 5,
   burstWait: 10,
@@ -477,8 +493,8 @@ export const DUEL_BASE = Object.freeze({ entry: DUEL.entry, win: DUEL.win, pool:
 export const BATTLE = { power: 1, armor: 100, rounds: 50 };
 
 export const FIELD_LUCK = {
-  normal: { base: 0.15, floor: 0.05 },
-  revenge: { base: 0.25, floor: 0.1 },
+  normal: { base: 0.01, floor: 0.01 },
+  revenge: { base: 0.01, floor: 0.01 },
 };
 
 export const HERO_BOX = {
@@ -501,7 +517,7 @@ export const HERO_RARITIES = {
   ...RARITIES,
 };
 
-export const TRAINING = { cost: { atk: 100000, def: 100000, hp: 100000 }, chance: { start: 100, step: 5, floor: 50 } };
+export const TRAINING = { cost: { atk: 25000, def: 25000, hp: 25000 }, chance: { start: 100, step: 5, floor: 50 } };
 
 export const BATTERY = { chance: 0.1, bonus: 0.5 };
 
@@ -557,7 +573,8 @@ export const HORSES = {
 export const HORSE_POWER = { atk: GEAR_POWER.atk, def: GEAR_POWER.def, spd: 1 };
 
 export const HOMESTEAD = {
-  summon: { cost: 2500, batches: [1, 5, 10], start: 1, cap: 100 },
+  summon: { cost: 2500, batches: [1, 5, 10], start: 0, cap: 100 },
+  crew: { cap: 100 },
   workers: {
     common:    { name: t('data.homestead.worker.common', null, 'Serf'),             speed: 1.0,  yield: 1.0 },
     uncommon:  { name: t('data.homestead.worker.uncommon', null, 'Cottager'),       speed: 1.1,  yield: 1.1 },
@@ -615,6 +632,7 @@ export const HOMESTEAD = {
     stew:    { name: t('data.homestead.good.stew', null, 'Fish Stew'),         at: 'kitchen', minutes: 40, in: { fish: 2, onion: 1, bread: 1 }, out: 2, energy: 24 },
   },
   batches: [1, 5, 10],
+  batchesFree: 1,
   queue: { free: 1, pass: 5 },
   food: { required: false, dayCap: 7 },
 };
@@ -623,6 +641,7 @@ export const DUNGEON = {
   minParty: 3,
   party: 5,
   runs: 3,
+  freeRuns: 1,
   paths: [
     { key: 'p1', numeral: 'I',   name: 'Shallow Crypt',  difficulty: t('data.dungeon.p1.difficulty', null, 'Easy'), color: '#7bd389', hours: 1, fee: 0, power: 0,   luck: 0 },
     { key: 'p2', numeral: 'II',  name: 'Sunken Vaults',  difficulty: t('data.dungeon.p2.difficulty', null, 'Fair'), color: '#ffd166', hours: 2, fee: 0, power: 100, luck: 0.5 },
@@ -636,12 +655,13 @@ export const DUNGEON = {
 
 export const EXPEDITION = {
   tiers: ['common', 'rare', 'epic', 'legendary', 'mythic'],
+  freeVoyages: 1,
   boats: {
     common:    { ship: 1, name: 'Rowboat',       crew: 1, speed: 1.00, price: 5000 },
     rare:      { ship: 2, name: 'Fishing Sloop', crew: 2, speed: 0.85, price: 25000 },
-    epic:      { ship: 3, name: 'Cog',           crew: 3, speed: 0.70, price: 100000 },
-    legendary: { ship: 5, name: 'Carrack',       crew: 4, speed: 0.55, price: 400000 },
-    mythic:    { ship: 6, name: 'War Galleon',   crew: 7, speed: 0.30, price: 1500000 },
+    epic:      { ship: 3, name: 'Cog',           crew: 3, speed: 0.70, price: 60000 },
+    legendary: { ship: 5, name: 'Carrack',       crew: 4, speed: 0.55, price: 240000 },
+    mythic:    { ship: 6, name: 'War Galleon',   crew: 7, speed: 0.30, price: 900000 },
   },
   routes: [
     { key: 'r1', numeral: 'I',   name: 'Gullrock Shoals', sea: t('data.expedition.r1.sea', null, 'Calm'), color: '#7bd389', hours: 2,  power: 0,    risk: 5,  haul: 3, odds: [70, 25, 5, 0, 0] },
@@ -701,7 +721,7 @@ export const JEWELRY = {
 
 export const FORGE = {
   slots: 2,
-  upgrades: [100000, 100000, 100000],
+  upgrades: [60000, 60000, 60000],
   recipes: {
     common:    { gems: { brinestone: 4 },                 minutes: 15,   fee: 0 },
     rare:      { gems: { tidepearl: 4, brinestone: 4 },   minutes: 60,   fee: 0 },
@@ -757,10 +777,10 @@ export const MARKET = {
   horseBase: Object.fromEntries(Object.entries(HORSES).map(([r, x]) => [r, x.price])),
 };
 
-export const heroValue = (key, level = 1) =>
-  Math.round((MARKET.heroBase[HEROES[key].rarity] * (1 + MARKET.levelStep * (level - 1))) / 100) * 100;
+export const heroValue = (key, level = 1, h = null) =>
+  Math.round((MARKET.heroBase[HEROES[key].rarity] * mintFarmMult(h) * (1 + MARKET.levelStep * (level - 1))) / 100) * 100;
 
-export const heroListFloor = (rarity) => MARKET.heroFloor[rarity] || 0;
+export const heroListFloor = (rarity, h = null) => Math.round((MARKET.heroFloor[rarity] || 0) * mintFarmMult(h));
 
 export const AUCTION = {
   mintMs: 24 * 3600e3,
@@ -799,21 +819,21 @@ export const REFERRAL = {
     { key: 'summons', need: 15, summons: 1, label: t('data.referral.rewards.summons', null, 'when a friend has summoned <b>15 mercenaries</b>') },
     { key: 'squire', summons: 3, label: t('data.referral.rewards.squire', null, 'when a friend buys their <b>first Squire</b>') },
   ],
-  active: 25000,
+  active: 2500,
   ranks: [
-    { need: 0,  name: 'Landless Lord', pct: 5 },
-    { need: 3,  name: 'Banneret',      pct: 5.5 },
-    { need: 10, name: 'Marcher Lord',  pct: 6 },
-    { need: 25, name: 'Realm Marshal', pct: 7 },
-    { need: 50, name: 'High Liege',    pct: 8 },
+    { need: 0,   name: 'Landless Lord', pct: 5 },
+    { need: 30,  name: 'Banneret',      pct: 5.5 },
+    { need: 100, name: 'Marcher Lord',  pct: 6 },
+    { need: 250, name: 'Realm Marshal', pct: 7 },
+    { need: 500, name: 'High Liege',    pct: 8 },
   ],
   milestones: [
-    { need: 1,  boxes: ['ember'] },
-    { need: 3,  boxes: ['champion'] },
-    { need: 5,  boxes: ['champion'] },
-    { need: 10, boxes: ['top'] },
-    { need: 25, boxes: ['top'], cards: 1 },
-    { need: 50, boxes: ['lastblow', 'top'] },
+    { need: 1,   boxes: ['ember'] },
+    { need: 20,  boxes: ['champion'] },
+    { need: 40,  boxes: ['champion'] },
+    { need: 100, boxes: ['top'] },
+    { need: 250, boxes: ['top'], cards: 1 },
+    { need: 500, boxes: ['lastblow', 'top'] },
   ],
 };
 

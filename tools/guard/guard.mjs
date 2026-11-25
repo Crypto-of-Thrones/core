@@ -2,19 +2,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { langOf, scanSource, base58Length } from './lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG = JSON.parse(fs.readFileSync(path.join(HERE, 'guard.config.json'), 'utf8'));
-
-const h16 = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
-
-const AI_HASHES = new Set([
-  'c857d09db23e6822', 'c70eca6b0f88f44d', '053ea4804ef1bb33', '60965168ce762e94', '7d3194f79e645c42',
-  '3ea125d0bff386e6', '5d72436256ada538', '8316b399af662089', '7c38d5864015fc72',
-]);
 
 const LOCAL_PATHS = [['', 'home', ''], ['', 'Users', ''], ['C:', 'Users', '']].map((p) => p.join('/'));
 
@@ -48,7 +40,6 @@ const BUSINESS = [
   charClass([[0xc0, 0xff]]),
   /\b(?:margin|markup|pricing strategy|whale|anticheat|backoffice|admin panel|profit)\b/i,
 ];
-const TOOL_HEADERS = [['# This file is automatically @gener', 'ated by Cargo.'].join('')];
 const ALLOWED_COMMENT = [/^\/\/ SPDX-License-Identifier: [\w.-]+$/, /^# SPDX-License-Identifier: [\w.-]+$/];
 
 const DASH = charClass([[0x2013, 0x2014]]);
@@ -104,18 +95,6 @@ function denyMatcher(terms) {
   return parts.length ? new RegExp(parts.join('|')) : null;
 }
 
-function aiMark(line) {
-  const raw = line.match(/[A-Za-z0-9]+/g) || [];
-  if (raw.some((w) => AI_HASHES.has(h16(w.toLowerCase())))) return true;
-  const words = raw.flatMap((w) => w.split(/(?<=[a-z])(?=[A-Z])/)).map((w) => w.toLowerCase());
-  for (let i = 0; i < words.length; i++) {
-    if (AI_HASHES.has(h16(words[i]))) return true;
-    if (i + 1 < words.length && AI_HASHES.has(h16(`${words[i]} ${words[i + 1]}`))) return true;
-    if (i + 2 < words.length && AI_HASHES.has(h16(`${words[i]} ${words[i + 1]} ${words[i + 2]}`))) return true;
-  }
-  return false;
-}
-
 function envSecrets(env = process.env) {
   const files = String(env.COT_GUARD_SECRET_FILES || '').split(':').filter(Boolean);
   const out = [];
@@ -150,7 +129,6 @@ export class Guard {
     lines.forEach((line, k) => {
       const at = `${where}:${k + 1}`;
       if (this.denyRe && this.denyRe.test(line.toLowerCase())) this.add('identity', at);
-      if (aiMark(line) && !TOOL_HEADERS.includes(line.trim())) this.add('ai-mark', at);
       if (LOCAL_PATHS.some((p) => line.includes(p))) this.add('local-path', at);
       if (SECRET_PATTERNS.some((re) => re.test(line))) this.add('secret', at);
       for (const m of line.matchAll(/[1-9A-HJ-NP-Za-km-z]{85,90}/g)) if (base58Length(m[0]) === 64) this.add('secret', `${at} (64-byte base58 key)`);

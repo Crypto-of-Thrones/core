@@ -30,6 +30,13 @@ export const seasonEnd = (season) => PASS.start + season * PASS.days * DAY;
 
 export const dayOf = (now) => Math.floor(now / DAY);
 
+export function passHeld(st, now) {
+  const season = seasonOf(now);
+  const rec = st?.pass;
+  if (rec && rec.season === season && rec.owned === true) return true;
+  return Array.isArray(st?.passPrepaid) && st.passPrepaid.includes(season);
+}
+
 const noneDone = () => Object.fromEntries(MISSIONS.map((k) => [k, false]));
 
 export const doneCount = (rec) => MISSIONS.filter((k) => rec.done[k]).length;

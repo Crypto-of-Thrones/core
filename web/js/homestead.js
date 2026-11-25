@@ -1,4 +1,4 @@
-import { HOMESTEAD } from './data.js';
+import { HOMESTEAD, HEROES } from './data.js';
 import { rollRarity } from './summon.js';
 
 export const CROPS = Object.keys(HOMESTEAD.crops);
@@ -56,13 +56,14 @@ export function normalizeHomestead(r) {
   for (const w of Array.isArray(r.workers) ? r.workers : []) {
     if (!w || typeof w.id !== 'string' || !ID.test(w.id) || seen.has(w.id) || !workerDef(w.rarity)) continue;
     seen.add(w.id);
-    out.workers.push({ id: w.id, rarity: w.rarity });
+    out.workers.push(Object.hasOwn(HEROES, w.key) ? { id: w.id, rarity: w.rarity, key: w.key } : { id: w.id, rarity: w.rarity });
   }
   const rarity = Object.fromEntries(out.workers.map((w) => [w.id, w.rarity]));
   const busy = new Set();
   const used = new Set();
   const tids = new Set();
   for (const x of Array.isArray(r.tasks) ? r.tasks : []) {
+    if (x && !rarity[x.worker] && typeof x.worker === 'string' && ID.test(x.worker) && workerDef(x.rarity)) rarity[x.worker] = x.rarity;
     if (!x || typeof x.id !== 'string' || !ID.test(x.id) || tids.has(x.id) || !rarity[x.worker] || (holdsWorker(x) && busy.has(x.worker))) continue;
     if (!Object.hasOwn(SITES, x.site) || !Number.isSafeInteger(x.slot) || x.slot < 0 || x.slot >= SITES[x.site] || used.has(`${x.site}:${x.slot}`)) continue;
     if (!validItem(x.site, x.item) || !Number.isFinite(x.start) || !Number.isFinite(x.end) || x.end < x.start || !posInt(x.n)) continue;
@@ -99,7 +100,7 @@ export function normalizeHomestead(r) {
 
 export const holdsWorker = (x) => x.site !== 'field';
 
-export const taskOf = (r, id) => r.tasks.find((x) => x.worker === id && holdsWorker(x)) || null;
+export const taskOf = (r, id) => r.tasks.filter((x) => x.worker === id).sort((a, b) => a.end - b.end)[0] || null;
 
 export const slotTask = (r, site, slot) => r.tasks.find((x) => x.site === site && x.slot === slot) || null;
 
@@ -205,6 +206,39 @@ export function seedWorkers(r) {
   return Array.from({ length: HOMESTEAD.summon.start }, () => addWorker(r, 'common'));
 }
 
+
+const crewRarity = (h) => (h && Object.hasOwn(HEROES, h.key) && workerDef(HEROES[h.key].rarity) ? HEROES[h.key].rarity : null);
+
+export function crewBlock(r, h) {
+  if (!crewRarity(h) || h.trial) return 'hero';
+  if (r.workers.some((w) => w.id === h.id)) return 'crew';
+  return r.workers.length >= HOMESTEAD.crew.cap ? 'cap' : '';
+}
+
+export function hireHero(r, h) {
+  const w = { id: h.id, rarity: crewRarity(h), key: h.key };
+  r.workers.push(w);
+  return w;
+}
+
+export const dismissBlock = (r, id) => (r.workers.some((w) => w.id === id) ? '' : 'worker');
+
+export const dismissHero = (r, id) => r.workers.splice(r.workers.findIndex((w) => w.id === id), 1)[0];
+
+export function syncCrew(r, heroes) {
+  const by = new Map((Array.isArray(heroes) ? heroes : []).filter((h) => crewRarity(h) && !h.trial).map((h) => [h.id, h]));
+  r.workers = r.workers.filter((w) => by.has(w.id)).map((w) => ({ id: w.id, rarity: crewRarity(by.get(w.id)), key: by.get(w.id).key }));
+  return r;
+}
+
+export const onFarm = (st, id) => Array.isArray(st?.homestead?.workers) && st.homestead.workers.some((w) => w?.id === id);
+
+export const ownedHeroes = (st) => [
+  ...(Array.isArray(st?.heroes) ? st.heroes : []),
+  ...(Array.isArray(st?.dungeon?.runs) ? st.dungeon.runs : []).flatMap((x) => (Array.isArray(x?.party) ? x.party : [])),
+  ...(Array.isArray(st?.expedition?.voyages) ? st.expedition.voyages : []).flatMap((x) => (Array.isArray(x?.party) ? x.party : [])),
+];
+
 export function barnValue(r) {
   let v = r.barn.wood * HOMESTEAD.wood;
   for (const [k, n] of Object.entries(r.barn.crops)) v += n * HOMESTEAD.crops[k].value;
@@ -272,6 +306,7 @@ export function cookBlock(r, recipe, n, now, cap = HOMESTEAD.queue.free) {
   const d = Object.hasOwn(HOMESTEAD.recipes, recipe) ? HOMESTEAD.recipes[recipe] : null;
   if (!d) return 'recipe';
   if (!HOMESTEAD.batches.includes(n)) return 'batch';
+  if (n > HOMESTEAD.batchesFree && cap < HOMESTEAD.queue.pass) return 'pass';
   if (!builtAt(r, d.at, now)) return 'building';
   if (jobsAt(r, d.at).length >= cap) return cap < HOMESTEAD.queue.pass ? 'busy' : 'queue';
   return Object.entries(d.in).every(([k, q]) => stockOf(r, k) >= q * n) ? '' : 'stock';

@@ -5,6 +5,16 @@ import { fieldPower, fieldLuck, battleId, luckRoll } from './fieldluck.js';
 export const H = 3600e3;
 export const DAY = 24 * H;
 
+export const newbieEnd = (born) => (born < PVP.openAt ? Math.min(born + PVP.newbie * H, PVP.openAt) : born + PVP.newbie * H);
+
+export const protectLockEnd = () => PVP.openAt + (PVP.protectLock || 0) * H;
+export const protectLockLeft = (now) => (now >= PVP.openAt ? Math.max(0, protectLockEnd() - now) : 0);
+
+export const shieldLeft = (protUntil, now) =>
+  (protectLockLeft(now) > 0 && protUntil - PVP.protect * H < PVP.openAt ? 0 : Math.max(0, protUntil - now));
+
+export const safeCut = (now) => (protectLockLeft(now) > 0 ? Math.max(now, PVP.openAt + PVP.protect * H) : now);
+
 export const hourOf = (now) => Math.floor(now / H);
 export const dayOf = (now) => Math.floor(now / DAY);
 

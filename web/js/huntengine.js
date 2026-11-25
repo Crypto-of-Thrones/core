@@ -1,4 +1,4 @@
-import { CASTLES, HEROES, FARM, FARM_BASE_DAYS, castleFarmMult } from './data.js';
+import { CASTLES, HEROES, FARM, FARM_BASE_DAYS, castleFarmMult, mintConvert } from './data.js';
 import { isTrial } from './trial.js';
 import { OIL_PAY } from './hunt.js';
 import { FIGHT_HOUR, FIGHT_DAILY } from './promos.js';
@@ -7,7 +7,9 @@ import { huntSpan, ruleRateOf, restStep, squirePass, brokenOf, hitShieldOf, stak
 
 export const ENGINE_V = 1;
 
-export const HERO_FIELDS = ['id', 'key', 'level', 'energy', 'shield', 'status', 'castle', 'hold', 'pin', 'battery', 'since', 'trial', 'ate'];
+export const FORGIVE_UNTIL = Date.UTC(2026, 10, 23, 3);
+
+export const HERO_FIELDS = ['id', 'key', 'level', 'energy', 'shield', 'status', 'castle', 'hold', 'pin', 'battery', 'since', 'trial', 'ate', 'mint'];
 
 export const FIGHT_Q = FIGHT_DAILY.step;
 
@@ -35,7 +37,7 @@ export function legInput(heroes, from, to, { live = false, paid, castle = -1, au
     squireRest: true,
     oilUntil: live && Number.isFinite(oilUntil) ? oilUntil : 0,
     lots: (lots || []).filter((l) => l && l.pool === 'farm').map((l) => ({ pool: 'farm', amount: l.amount, at: l.at })),
-    heroes: heroes.map(heroSnap),
+    heroes: heroes.map((h) => mintConvert(heroSnap(h), from)),
   };
 }
 
@@ -94,6 +96,7 @@ export function runLeg(input, heroes = null, tap = null) {
   const live = !!input.live;
   const q = {};
   let at = input.from;
+  let sent = 0;
   const onPay = live || tap ? (x, trial, h) => {
     if (live) {
       const k = Math.floor(at / FIGHT_Q);
@@ -122,10 +125,16 @@ export function runLeg(input, heroes = null, tap = null) {
       return {
         ...(input.paid === 0 ? { paid: 0 } : {}), share: PACE_DEFAULT, rate: (h) => ruleRateOf(h, stakeNow() * castlePay) * (at < oilUntil ? oil : 1),
         rest: (dt) => { restStep(part, dt, { castle, autoSend, keep, hunger }); at += dt * 1000; },
-        squire: input.squire ? () => squirePass(part, castle, input.squireRest === true) : null, broken: brokenOf, hit: hitShieldOf, onPay,
+        squire: input.squire ? () => {
+          const off = part.filter((h) => h.status !== 'work');
+          squirePass(part, castle, input.squireRest === true);
+          sent += off.filter((h) => h.status === 'work').length;
+        } : null,
+        broken: brokenOf, hit: hitShieldOf, onPay,
       };
     });
-    return live ? { ...run, q } : run;
+    const out = live ? { ...run, q } : run;
+    return sent ? { ...out, sent } : out;
   } finally {
     REALM_LIVE.emission = saved.emission;
     REALM_LIVE.index = saved.index;
@@ -209,6 +218,7 @@ export function splitWhy(refs, warShare) {
   if (f !== undefined) {
     const n = (v) => Number.isSafeInteger(v) && v >= 0;
     if (!live || !f || !n(f.chest) || !n(f.war) || f.chest + f.war === 0 || (f.chest > 0 && refs.chest !== 0) || (f.war > 0 && refs.war !== 0)) return 'forgiven';
+    if (!(Number.isFinite(refs.from) && refs.from < FORGIVE_UNTIL)) return 'forgiven';
   }
   const fc = f?.chest || 0;
   const fw = f?.war || 0;

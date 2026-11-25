@@ -33,7 +33,7 @@ export const BALANCE = freeze({
     "feePct": 3,
     "feeStartPct": 15,
     "feeStepPct": 2,
-    "min": 10000,
+    "min": 1000,
     "hold": 2500
   },
   "pvp": {
@@ -71,4 +71,4 @@ export const BALANCE = freeze({
   }
 });
 
-export const BALANCE_HASH = '459348f38781e89fbf72e16e53f9419508a571669563a3b8bc4792ed6d59bc49';
+export const BALANCE_HASH = '2d9f49d32c68d58c69f6bc83901471989f83c932932e7e02e06165440a68895a';

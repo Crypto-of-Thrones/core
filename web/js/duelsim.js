@@ -261,16 +261,41 @@ export async function duelSideId(match, acct) {
   return [...new Uint8Array(d)].slice(0, 16).map((x) => x.toString(16).padStart(2, '0')).join('');
 }
 
-export const duelRecord = (m) => JSON.stringify({
+export const duelRecord = (m) => (m.v === 2 ? JSON.stringify({
+  v: 2, match: m.match, hz: TICK_HZ, max: m.max ?? DUEL_FIGHT.maxTicks,
+  a: { fighter: { atk: m.a.fighter.atk, def: m.a.fighter.def, hp: m.a.fighter.hp } },
+  b: { fighter: { atk: m.b.fighter.atk, def: m.b.fighter.def, hp: m.b.fighter.hp } },
+  log: m.log, end: m.end,
+}) : JSON.stringify({
   v: 1, match: m.match, hz: TICK_HZ, max: m.max ?? DUEL_FIGHT.maxTicks,
   a: { id: m.a.id, fighter: { atk: m.a.fighter.atk, def: m.a.fighter.def, hp: m.a.fighter.hp } },
   b: { id: m.b.id, fighter: { atk: m.b.fighter.atk, def: m.b.fighter.def, hp: m.b.fighter.hp } },
   log: m.log, end: m.end,
-});
+}));
 
 export async function duelLogHash(m) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(duelRecord(m)));
   return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+export async function checkDuelLog(r, want) {
+  if (r?.v1 === true && r.hashCheck === 'owner') return { status: 'owner' };
+  const rec = r?.record;
+  if (!rec || typeof rec !== 'object' || !Array.isArray(rec.log) || !rec.end) return { status: 'none' };
+  const bad = (why) => ({ status: 'bad', why });
+  if (rec.match !== want.match) return bad('match');
+  const same = (x, y) => !!x && !!y && ['atk', 'def', 'hp'].every((k) => x[k] === y[k]);
+  if ((want.a || want.b) && !(same(rec.a?.fighter, want.a) && same(rec.b?.fighter, want.b))) return bad('fighters');
+  const ENDS = ['winner', 'reason', 'tick', 'hpA', 'hpB'];
+  let end, hash;
+  try {
+    end = replayDuel(rec.a.fighter, rec.b.fighter, rec.log, rec.max);
+    hash = await duelLogHash(rec);
+  } catch { return bad('replay'); }
+  if (!ENDS.every((k) => end?.[k] === rec.end[k])) return bad('replay');
+  if (hash !== want.logHash || (r.hash && r.hash !== hash)) return bad('hash');
+  if (want.end && !ENDS.every((k) => end[k] === want.end[k])) return bad('replay');
+  return { status: 'ok' };
 }
 
 export function heroSnap(s, h) {

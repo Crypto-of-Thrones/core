@@ -1,4 +1,4 @@
-import { HEROES, RARITIES, FUSION } from './data.js';
+import { HEROES, RARITIES, FUSION, isMintTier, mintCost } from './data.js';
 import { pickHero } from './summon.js';
 import { t } from './i18nsafe.js';
 import { isTrial, trialBlock } from './trial.js';
@@ -25,6 +25,10 @@ export function fuseBlock(hero) {
   return '';
 }
 
+export const mixedTiers = (heroes) => heroes.some((x) => isMintTier(x) !== isMintTier(heroes[0]));
+
+const fmtInt = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
 export function pickBlock(heroes) {
   const n = heroes.length;
   if (!n) return t('fusion.pick.none', { n: FUSION.size }, 'Pick {n} mercenaries of the same rarity.');
@@ -34,6 +38,7 @@ export function pickBlock(heroes) {
   if (extra) return t('fusion.pick.groups', { size: FUSION.size, more: FUSION.size - extra, extra }, 'Fusions take groups of {size}. Pick {more} more or remove {extra}.');
   const r = HEROES[heroes[0].key].rarity;
   if (heroes.some((x) => HEROES[x.key].rarity !== r)) return t('fusion.pick.oneRarity', null, 'Every picked mercenary must share one rarity.');
+  if (mixedTiers(heroes)) return t('fusion.pick.oneTier', { n: fmtInt(mintCost()) }, 'Mint {n} mercenaries fuse only with other Mint {n} mercenaries.');
   for (const x of heroes) { const why = fuseBlock(x); if (why) return why; }
   return '';
 }

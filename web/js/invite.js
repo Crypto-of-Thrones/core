@@ -1,4 +1,4 @@
-import { REFERRAL, REFERRAL_EVENT, BOXES, HEROES, RARITIES, MARKET, summonCost } from './data.js';
+import { REFERRAL, REFERRAL_EVENT, BOXES, HEROES, RARITIES, MARKET, summonCost, mintCost } from './data.js';
 import { seeded } from './raidrules.js';
 import { spendBase } from './realmlive.js';
 import { SERVER_MODE } from './buildprofile.js';
@@ -37,7 +37,7 @@ const PROFILES = [
   { base: 30000, rate: 400 },
   { base: 400000, rate: 2000 },
   { base: 1700000, rate: 5000, squire: true },
-  { base: 5000, rate: 300 },
+  { base: 500, rate: 30 },
   { base: 90000, rate: 1500, twin: true },
 ];
 const VASSAL_ART = ['recruit', 'raider', 'wildling', 'lionguard', 'tyrus', 'aryna', 'holdur', 'kael'];
@@ -200,7 +200,7 @@ export function boxValue(key) {
   return (b.coins[0] + b.coins[1]) / 2 + b.hero * heroValueFrom(b.heroFloor);
 }
 
-export const rewardValue = (m) => m.boxes.reduce((t, k) => t + boxValue(k), 0) + (m.cards || 0) * summonCost();
+export const rewardValue = (m) => m.boxes.reduce((t, k) => t + boxValue(k), 0) + (m.cards || 0) * mintCost();
 
 const FIELD = 120;
 const TOP_SCORE = [6000, 9000];

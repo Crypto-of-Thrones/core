@@ -51,7 +51,7 @@ export function entriesAt(rec, now) {
 export function potOf(entries) {
   const tickets = entries.reduce((s, x) => s + x.tickets, 0);
   const total = tickets * LOTTERY.price;
-  const winners = Math.max(1, Math.min(LOTTERY.winners, entries.filter((x) => x.tickets > 0).length));
+  const winners = Math.max(1, Math.min(LOTTERY.winners, entries.filter((x) => x.tickets > 0 && !x.banned).length));
   return { tickets, total, prize: Math.floor((total * LOTTERY.prizePct) / 100 / winners), pool: Math.floor((total * LOTTERY.poolPct) / 100) };
 }
 
@@ -63,7 +63,7 @@ export function winChance(entries) {
 }
 
 export function drawWinners(entries, seed, rng = seeded(`lottery-draw:${seed}`)) {
-  const left = entries.filter((x) => x.tickets > 0);
+  const left = entries.filter((x) => x.tickets > 0 && !x.banned);
   const out = [];
   while (out.length < LOTTERY.winners && left.length) {
     let roll = rng() * left.reduce((s, x) => s + x.tickets, 0);
@@ -76,7 +76,7 @@ export function drawWinners(entries, seed, rng = seeded(`lottery-draw:${seed}`))
 export const DRAW_KIND = 'lotteryDraw';
 export const drawId = (day) => `lottery-${day}`;
 
-export const sealedEntries = (rows) => rows.filter((x) => x.tickets > 0).map((x) => ({ name: x.name, tickets: x.tickets }))
+export const sealedEntries = (rows) => rows.filter((x) => x.tickets > 0).map((x) => ({ name: x.name, tickets: x.tickets, ...(x.banned ? { banned: true } : {}) }))
   .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
 export function drawUniforms(u) {

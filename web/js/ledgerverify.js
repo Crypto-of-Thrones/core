@@ -1,15 +1,17 @@
-import { GENESIS, verifyAuditChain, sha256, toHex, utf8, concat, fromHex } from './net.js';
+import { GENESIS, verifyAuditChain, sha256, toHex, utf8, concat, fromHex, REALM_PRIVATE_KIND, showsMask } from './net.js';
 import { QUICKNET, deriveOutcome, fetchRound, roundAt, roundTime, verifyRound, drawRound } from './drand.js';
-import { BATTERY, PVP, JOUST, JOUST_BASE, DRAGON_DRAW, HERO_BOX, dragonDrawId, dragonKindAt, summonCost, FUSION } from './data.js';
+import { BATTERY, PVP, JOUST, JOUST_BASE, DRAGON_DRAW, HERO_BOX, dragonDrawId, dragonKindAt, summonCost, FUSION, MINT_TIER, mintCost, mintPrice } from './data.js';
 import { roundCot, spendBase, PRICE_FACTOR } from './realmlive.js';
 import { normalizePity, summonBatch } from './summon.js';
 import { rollFusions } from './fusion.js';
 import { nextRarity, rollBox, rollStats, boxRefund, canOpenBox, openBox } from './hero.js';
+import { boxToMerc } from './pvpark.js';
 import { rollTraining, trainChance, chanceUnder, LEGACY_TRAIN_FLOOR, TRAIN_RULES, trainCost } from './trainingrules.js';
 import { TRAINING } from './data.js';
 import { WHEEL, wedgeAt, LOGIN, FIRSTS, dropItems, WHEEL_ALL_MAX } from './claims.js';
 import { chestPick } from './tasks.js';
-import { LADDER_RULES as LADDER, tierOf, tierItems } from './ladderrules.js';
+import { taxOf } from './marketrules.js';
+import { LADDER_RULES as LADDER, tierOf, tierItems, spendGated } from './ladderrules.js';
 import { LOTTERY, DRAW_KIND, drawAt, drawId, drawUniforms, drawWinners, sealedEntries } from './lottery.js';
 import { spreadOf, HUNT_MULT } from './huntsim.js';
 import { checkHour, checkLive, splitWhy } from './huntengine.js';
@@ -18,7 +20,7 @@ import { rollTreasure, heroPower } from './gear.js';
 import { drawSeed, playJoust, joustGearRefs, foesOf } from './joust.js';
 import { luckRoll } from './fieldluck.js';
 import { resolveRaid } from './pvprules.js';
-import { isFighter } from './duelsim.js';
+import { isFighter, checkDuelLog } from './duelsim.js';
 import { DUEL, DUEL_BASE } from './data.js';
 import { boxContents } from './boxrules.js';
 import { createFight, fightResult, WORLD_BOSS } from './worldboss.js';
@@ -27,8 +29,9 @@ import { routeOf, rollVoyage } from './expedition.js';
 import { rollWorkers, rollCatch, FISH_DRAW } from './homestead.js';
 
 const json = (x) => JSON.stringify(x);
+const gatedPair = (x) => Array.isArray(x) && x.length === 2 && Number.isSafeInteger(x[1]) && spendGated(x[0], x[1]);
 const dataText = (e) => (typeof e.data === 'string' ? e.data : json(e.data));
-const dataOf = (e) => (typeof e.data === 'string' ? JSON.parse(e.data) : e.data || {});
+const dataOf = (e) => (typeof e.data === 'string' ? JSON.parse(e.data) : e.data) || {};
 
 async function pityBroken(rev, rr, entries) {
   const prev = entries
@@ -49,12 +52,12 @@ async function pityBroken(rev, rr, entries) {
   }
 }
 
-export async function verifyChain(entries) {
+export async function verifyChain(entries, opts = {}) {
   const list = [...entries].sort((a, b) => a.seq - b.seq);
   for (let i = 1; i < list.length; i++) if (list[i].seq !== list[i - 1].seq + 1) return { ok: false, at: list[i].seq, why: 'gap' };
   const first = list[0];
   if (!first) return { ok: true, head: GENESIS };
-  return verifyAuditChain(list.map((e) => ({ ...e, data: dataText(e) })), first.seq === 1 ? GENESIS : first.prev);
+  return verifyAuditChain(list.map((e) => ({ ...e, data: e.data == null ? null : dataText(e) })), first.seq === 1 ? GENESIS : first.prev, { realm: opts.realm === true });
 }
 
 const slice = (u, from = 0, to = u.length) => {
@@ -208,7 +211,7 @@ export const RULES = {
     count: () => LOTTERY.winners,
     async check(u, a, r, extra, draw) {
       if (!extra || !Array.isArray(extra.entries)) return null;
-      const list = sealedEntries(extra.entries.map((x) => ({ name: x.acct, tickets: x.tickets })));
+      const list = sealedEntries(extra.entries.map((x) => ({ name: x.acct, tickets: x.tickets, banned: x.banned === true })));
       const seal = toHex(await sha256(utf8(json({ v: 1, day: r.day, round: draw.round, chain: draw.chain, entries: list }))));
       if (seal !== r.seal) return false;
       const won = drawWinners(list, null, drawUniforms(u)).map((x) => ({ acct: x.name, tickets: x.tickets }));
@@ -349,11 +352,16 @@ export const RULES = {
   arkOpen: { count: (a) => passDrawCount(a.items), check: (u, a, r) => replayRewards(u, a.items, r) },
   wlPromo: { count: (a) => passDrawCount(a.items), check: (u, a, r) => replayRewards(u, a.items, r) },
   beginnerArk: { count: (a) => passDrawCount(a.items), check: (u, a, r) => replayRewards(u, a.items, r) },
+  pvpArk: { count: (a) => passDrawCount(a.items), check: (u, a, r) => replayRewards(u, a.items, r) },
   achievement: {
     count: (a) => passDrawCount(a.items),
     check: (u, a, r) => {
       if (Array.isArray(a.claims)) {
-        if (!a.claims.length || json(r.claims) !== json(a.claims.map((c) => (Array.isArray(c) ? [c[0], c[1]] : c)))) return false;
+        const held = a.held === undefined ? [] : a.held;
+        const released = a.released === undefined ? [] : a.released;
+        if (!Array.isArray(held) || !Array.isArray(released) || !held.every(gatedPair) || !released.every(gatedPair)) return false;
+        if ((!a.claims.length && !released.length) || json(r.claims) !== json(a.claims.map((c) => (Array.isArray(c) ? [c[0], c[1]] : c)))) return false;
+        const owed = new Set(held.map((x) => json(x)));
         let xp = 0;
         const items = [];
         for (const c of a.claims) {
@@ -361,15 +369,18 @@ export const RULES = {
           const l = LADDER[id];
           if (!l || !Number.isSafeInteger(tier) || tier < 1 || tier > l.goals.length || goal !== l.goals[tier - 1] || tierOf(l, value) < tier) return false;
           xp += l.xp[tier - 1];
-          items.push(...tierItems(tier));
+          if (!owed.delete(json([id, tier]))) items.push(...tierItems(tier));
         }
+        if (owed.size) return false;
+        for (const [, tier] of released) items.push(...tierItems(tier));
         if (json(a.items) !== json([{ kind: 'xp', n: xp }, ...items])) return false;
         return replayRewards(u, a.items, r);
       }
       const l = LADDER[a.id];
       if (!l || !Number.isSafeInteger(a.tier) || a.tier < 1 || a.tier > l.goals.length || r.tier !== a.tier || r.id !== a.id) return false;
       if (a.goal !== l.goals[a.tier - 1] || tierOf(l, a.value) < a.tier) return false;
-      if (json(a.items) !== json([{ kind: 'xp', n: l.xp[a.tier - 1] }, ...tierItems(a.tier)])) return false;
+      if (a.held !== undefined && (a.held !== true || !spendGated(a.id, a.tier))) return false;
+      if (json(a.items) !== json([{ kind: 'xp', n: l.xp[a.tier - 1] }, ...(a.held ? [] : tierItems(a.tier))])) return false;
       return replayRewards(u, a.items, r);
     },
   },
@@ -434,6 +445,7 @@ function replayRewards(u, items, r) {
     if (!hero) return false;
     for (let k = 0; k < (it.n || 1); k++) {
       hero = { ...hero };
+      if (boxToMerc(it, hero.rarity)) { summon(1, it.merc, it.merc); continue; }
       if (!canOpenBox(hero)) { summon(1, it.rarity === 'mythic' ? 'mythic' : undefined); continue; }
       const b = openBox(hero, next, it.rarity || null);
       boxes.push({ rolled: b.rolled, from: b.from, to: b.to, up: b.up });
@@ -478,11 +490,11 @@ const priced = (catalog, d) => {
 };
 
 const PRICES = {
-  summon: (a, d) => (d.from === 'card' ? 0 : milli(a.n * priced(summonCost(), d))),
+  summon: (a, d) => (d.from === 'card' ? 0 : milli(a.n * priced(a.mint === MINT_TIER.id && d.from !== 'war' ? mintCost() : summonCost(), d))),
   train: (a, d) => (a.free ? 0 : milli(priced(trainCost(a.stat), d))),
   joust: (a, d) => (a.queue === 'leave' ? undefined : a.free || a.match !== undefined ? 0 : milli(priced(JOUST.entry, d))),
   duel: (a, d) => (a.queue === 'join' ? milli(priced(DUEL.entry, d)) : a.match !== undefined ? 0 : undefined),
-  fusion: (a, d) => milli(a.fusions * priced(FUSION.cost[a.rarity], d)),
+  fusion: (a, d) => milli(a.fusions * mintPrice(priced(FUSION.cost[a.rarity], d), a.mint === MINT_TIER.id ? a : null)),
   heroBox: (a, d) => (a.price === priced(HERO_BOX.price, d) ? a.boxes * milli(a.price) : NaN),
 };
 
@@ -513,10 +525,11 @@ export const STATIC_RULES = {
   huntLive: { check: (r) => (r.prev === undefined ? null : checkLive(r, PVP.share)) },
   marketSale: { check: (r) => (r.roiIn === undefined ? null : Number.isSafeInteger(r.roiIn) && Number.isSafeInteger(r.roiPass) && r.roiPass >= 0 && Number.isSafeInteger(r.price) && Number.isSafeInteger(r.tax) && r.tax >= 0 && r.roiIn === Math.min(r.price - r.tax, r.roiPass)) },
   marketBuy: {
-    check: (r) => {
+    check: (r, d) => {
       if (r.roiOut === undefined) return null;
       if (r.roiInv !== undefined) {
-        return Number.isSafeInteger(r.price) && r.price > 0 && r.roiInv === r.price && Number.isSafeInteger(r.roiTax) && r.roiTax >= 0
+        return d?.from === 'wallet' && Number.isSafeInteger(r.price) && r.price > 0 && r.roiInv === r.price
+          && r.roiTax === Math.round(taxOf(r.price / 1000) * 1000)
           && Number.isSafeInteger(r.roiPass) && r.roiPass >= 0 && r.roiOut === Math.max(0, Math.min(r.price - r.roiTax, r.roiPass));
       }
       return Number.isSafeInteger(r.roiOut) && r.roiOut > 0 && r.roiOut === r.price && (r.roiPass === undefined || (Number.isSafeInteger(r.roiPass) && r.roiPass >= 0));
@@ -629,8 +642,13 @@ export async function verifyEntry(e, entries, opts = {}) {
     ...(anchor?.status === 'fail' && r.status === 'ok' ? { status: 'fail', why: 'anchor' } : {}),
   });
   const bad = (why, round) => done({ status: 'bad', steps, why, round });
+  if (e.private === true && !(opts.realm === true && REALM_PRIVATE_KIND.test(e.kind))) return bad('private');
+  if (opts.realm === true && e.redacted !== undefined) return bad('redacted');
+  const masked = e.redacted === true && e.data != null && e.data !== 'null';
+  if (masked && !showsMask(e.data)) return bad('mask');
+  const hidden = (round) => done({ status: 'hidden', steps, why: 'redacted', ...(round !== undefined ? { round } : {}) });
   const upTo = entries.filter((x) => x.seq <= e.seq);
-  const c = await verifyChain(upTo.length ? upTo : [e]);
+  const c = await verifyChain(upTo.length ? upTo : [e], { realm: opts.realm === true });
   steps.chain = c.ok && upTo.some((x) => x.hash === e.hash) ? 'ok' : 'bad';
   if (steps.chain === 'bad') return bad('chain');
 
@@ -647,8 +665,11 @@ export async function verifyEntry(e, entries, opts = {}) {
     if (anchor) steps.anchor = anchor.status;
     if (anchor?.status === 'bad' || anchor?.status === 'missing') return bad('anchor');
   }
-  if (d.stage === 'act' && ownRules(d) && priceOk(e) === false) return bad('price');
+  if (e.redacted === true && !masked) return hidden();
+  if (e.private === true) return done({ status: 'hidden', steps, why: 'private' });
+  if (!masked && d.stage === 'act' && ownRules(d) && priceOk(e) === false) return bad('price');
   if (!d.draw && d.v === 2 && d.stage === 'reveal' && e.kind === 'duel') {
+    if (masked) return hidden();
     const act = entries.find((x) => x.seq < e.seq && dataOf(x).actionId === d.actionId && dataOf(x).stage === 'act');
     if (!act) return bad('bound');
     steps.bound = 'ok';
@@ -659,6 +680,21 @@ export async function verifyEntry(e, entries, opts = {}) {
     try { ok = RULES.duel.check([], ar, rr, null, null, { entries, acct: opts.acct || acctOf(entries), entry: e, act, info }); } catch { ok = false; }
     if (ok !== true) return bad('rule');
     if (PAID.duel(ar, rr, { entry: e }) === false) return bad('amount');
+    if (rr.cancelled) {
+      steps.rule = 'ok';
+      return done({ status: 'ok', steps });
+    }
+    let log;
+    try { log = opts.duelLog ? await opts.duelLog(ar.match) : null; } catch { log = null; }
+    const c = await checkDuelLog(log, {
+      match: ar.match, logHash: rr.log, a: ar.a.fighter, b: ar.b.fighter,
+      end: { winner: rr.winner, reason: rr.reason, tick: rr.ticks, hpA: rr.hpA, hpB: rr.hpB },
+    });
+    if (c.status === 'bad') return bad(c.why);
+    if (c.status !== 'ok') {
+      const why = !opts.duelLog ? 'duel log not read' : c.status === 'owner' ? 'duel log v1 not public' : 'duel log not available';
+      return done({ status: 'sig', steps, why });
+    }
     steps.rule = 'ok';
     return done({ status: 'ok', steps });
   }
@@ -668,31 +704,40 @@ export async function verifyEntry(e, entries, opts = {}) {
       const proof = { round: d.round, chain: d.chain, randomness: d.randomness, signature: d.signature };
       if (d.chain !== info.hash || !(await verifyRound(proof, info).catch(() => false))) return bad('beacon', d.round);
       steps.beacon = 'ok';
-      return done({ status: 'sig', steps, round: d.round });
+      return masked ? hidden(d.round) : done({ status: 'sig', steps, round: d.round });
     }
-    const st = Object.hasOwn(STATIC_RULES, e.kind) && d.v === 2 && d.refs ? STATIC_RULES[e.kind].check(d.refs) : null;
+    if (masked) return hidden();
+    const st = Object.hasOwn(STATIC_RULES, e.kind) && d.v === 2 && d.refs ? STATIC_RULES[e.kind].check(d.refs, d) : null;
     if (st === false) return bad('rule');
     if (st === true) steps.rule = 'ok';
     return done({ status: 'ok', steps });
   }
 
+  if (masked && !d.draw.randomness) return hidden(d.draw.round);
   const same = (x) => d.actionId && dataOf(x).actionId === d.actionId;
   const reveals = d.draw.randomness ? [e] : entries.filter((x) => same(x) && dataOf(x).draw?.randomness);
   if (!reveals.length) return done({ status: 'wait', steps, round: d.draw.round });
   const act = d.stage === 'act' ? e : entries.find((x) => same(x) && dataOf(x).stage === 'act');
   const round = d.draw.round;
-  if (act && act !== e && ownRules(dataOf(act)) && priceOk(act) === false) return bad('price', round);
+  if (!masked && act && act !== e && ownRules(dataOf(act)) && priceOk(act) === false) return bad('price', round);
 
-  const movedTo = (r) => entries.find((x) => {
-    const m = dataOf(x).refs?.rebind;
-    return m && m.send === d.actionId && m.round === r && m.chain === info.hash && (!act || x.seq > act.seq);
-  });
+  const rebinds = act && d.actionId ? entries.filter((x) => dataOf(x).refs?.rebind?.send === d.actionId) : [];
+  if (rebinds.length > 1) return bad('bound', round);
+  const rebind = rebinds[0] || null;
+  const rebindMasked = !!rebind && rebind.redacted === true && rebind.data != null && rebind.data !== 'null';
+  const movedTo = (r) => {
+    const m = rebind && dataOf(rebind).refs.rebind;
+    return m && m.round === r && m.chain === info.hash && rebind.seq > act.seq ? rebind : null;
+  };
+  const REBIND_OF = { voyageSpeedup: 'voyageSend', dungeonSpeedup: 'dungeonSend' };
+  const rebindOk = (x, r) => dataOf(x).stage === 'act' && Object.hasOwn(REBIND_OF, x.kind) && REBIND_OF[x.kind] === act.kind
+    && x.ts >= act.ts && x.ts < roundTime(dataOf(act).draw?.round, info) && x.ts < roundTime(r, info);
 
   for (const rev of reveals) {
     const rd = dataOf(rev);
     const draw = rd.draw;
-    const moved = act && dataOf(act).draw?.round !== draw.round ? movedTo(draw.round) : null;
-    if (draw.chain !== info.hash || (draw.round !== round && !moved)) return bad('beacon', round);
+    const moved = movedTo(draw.round);
+    if (draw.chain !== info.hash || (draw.round !== round && !moved && !rebindMasked)) return bad('beacon', round);
     let beacon = draw;
     if (!draw.signature) {
       try { beacon = await fetchRound(draw.round, { info, fetchFn: opts.fetchFn, fresh: true }); } catch (err) {
@@ -703,11 +748,12 @@ export async function verifyEntry(e, entries, opts = {}) {
     steps.beacon = 'ok';
 
     const ad = act ? dataOf(act) : null;
-    const boundOk = ad ? (moved ? moved.ts < roundTime(draw.round, info) : ad.draw?.round === draw.round && act.ts < roundTime(draw.round, info))
-      : rd.kind === DRAW_KIND ? lotteryBound(rd.refs || {}, draw, info)
+    const boundOk = ad ? (rebindMasked ? null : rebind ? !!moved && rebindOk(moved, draw.round) : ad.draw?.round === draw.round && act.ts < roundTime(draw.round, info))
+      : masked ? null : rd.kind === DRAW_KIND ? lotteryBound(rd.refs || {}, draw, info)
         : rd.kind === 'vigilPrize' ? vigilBound(rd.refs || {}, draw, info, entries) : null;
     if (boundOk === false) return bad('bound', round);
     if (boundOk) steps.bound = 'ok';
+    if (masked) continue;
 
     const rule = Object.hasOwn(RULES, rd.kind) ? RULES[rd.kind] : null;
     if (!rule) { sigOnly = true; continue; }
@@ -732,6 +778,7 @@ export async function verifyEntry(e, entries, opts = {}) {
     else sigOnly = true;
     if (ok === true && rr.pityBefore !== undefined && (await pityBroken(rev, rr, entries)) === true) return bad('pity', round);
   }
+  if (masked || rebindMasked) return hidden(round);
   return done(rulesNeed ? { status: 'rules', steps, round, rules: rulesNeed } : sigOnly ? { status: 'sig', steps, round } : { status: 'ok', steps, round });
 }
 
@@ -889,9 +936,11 @@ export function anchorChecker(o = {}) {
         ? { status: 'missing', why: `hour ${epoch} has no sealed proof, ${ago(now - anchorDue(epoch))} past the anchoring window` }
         : { status: 'pending', why: `hour ${epoch} not sealed yet`, due: anchorDue(epoch) };
     }
-    if (!seen.has(m.epoch)) seen.set(m.epoch, checkAnchor(m, o).catch((err) => ({ status: 'fail', why: err.message })));
-    const r = await seen.get(m.epoch);
-    if (r.status !== 'ok' && r.status !== 'bad') seen.delete(m.epoch);
+    const a = m.anchor || {};
+    const key = JSON.stringify([m.epoch, m.root, m.leafCount, m.prevHash, m.hash, a.mode, a.status, a.sig]);
+    if (!seen.has(key)) seen.set(key, checkAnchor(m, o).catch((err) => ({ status: 'fail', why: err.message })));
+    const r = await seen.get(key);
+    if (r.status !== 'ok' && r.status !== 'bad') seen.delete(key);
     return r;
   };
 }

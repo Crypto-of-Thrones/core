@@ -169,6 +169,8 @@ export const boatReadyAt = (v) => voyageDue(v) + (voyageDue(v) - v.start);
 
 export const boatRestLeft = (rest, tier, now = Date.now()) => Math.max(0, (Number(rest?.[tier]) || 0) - now);
 
+export const seaCap = (boats, pass) => (pass === true ? boats : Math.min(boats, EXPEDITION.freeVoyages));
+
 export function rushPrice(system, msLeft) {
   const perHour = EXPEDITION.speedup.perHour?.[system] || 0;
   if (!(perHour > 0)) return null;

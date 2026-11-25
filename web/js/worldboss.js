@@ -133,6 +133,12 @@ export let WORLD_BOSS = WORLD_BOSSES[0];
 
 export const bossById = (id) => WORLD_BOSSES.find((b) => b.id === id) || null;
 
+export function pickLandingDragon(lastId = null, rnd = Math.random) {
+  const pool = WORLD_BOSSES.filter((b) => b.id !== lastId);
+  const from = pool.length ? pool : WORLD_BOSSES;
+  return from[Math.min(from.length - 1, Math.floor(rnd() * from.length))];
+}
+
 const STATE_ORDER = { live: 0, scheduled: 1, ended: 2 };
 
 export function pickWorldBoss(windows, now) {
@@ -238,7 +244,7 @@ export function rivalField(w) {
   return lords.sort((a, b) => a.at - b.at);
 }
 
-const CODE_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+export const CODE_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
 export function roomCode(seed) {
   const rng = seeded(`wb-code:${seed}`);

@@ -26,6 +26,9 @@ const MELEE_MAX = 3;
 const MELEE_MAX_BIG = 5;
 const CONTACT_REACH = 1.45;
 const STANDOFF = 2.4;
+const BACK_CLOSE = 1.6;
+const BACK_STEPS = 3;
+const BACK_SPARE = 0.05;
 const STALL = 0.6;
 const RALLY_STALL = 2.5;
 const ENTER_FROM = 1.6;
@@ -49,6 +52,12 @@ const DUEL_CHASE = 3;
 const REFILL_GAP = 0.5;
 const DUEL_NEAR = [2, 3];
 const DUEL_NEAR_OWN = 1.4;
+const HOP_NEAR = 1.4;
+const HOP_NEAR_SMALL = 1;
+const HOP_FAR = 2.5;
+const HOP_HOME = 2.5;
+const HOP_STOP = 1.5;
+const HOP_FOE = 1.5;
 const REFILL_RETRY = 0.25;
 const ORPHAN_R = 6;
 const ORPHAN_WAIT = 2;
@@ -712,7 +721,8 @@ export function createHunt(opts = {}) {
     const def = ENEMIES[kind];
     const fp = footprint({ def });
     const [ux, uy] = units.length > 1 && u.step ? u.step : [u.x, u.y];
-    const [px, py] = !u.post || dist(ux, uy, u.post[0], u.post[1]) <= 2 ? [ux, uy] : u.post;
+    const [px, py] = !u.post || (!u.hopped && dist(ux, uy, u.post[0], u.post[1]) <= 2) ? [ux, uy] : u.post;
+    u.hopped = false;
     let best = null, bs = -1, inArea = false;
     for (let y = Math.floor(py - DUEL_NEAR[1]); y <= py + DUEL_NEAR[1]; y++) for (let x = Math.floor(px - DUEL_NEAR[1]); x <= px + DUEL_NEAR[1]; x++) {
       const d = dist(x, y, px, py);
@@ -869,6 +879,20 @@ export function createHunt(opts = {}) {
       left.splice(bu, 1)[0].post = posts.splice(bp, 1)[0];
     }
     for (const u of left) u.post = [u.x, u.y];
+  }
+
+  function hopPost(u) {
+    const ok = [];
+    if (u.post && u.post !== u.hopAt) u.home = u.post;
+    for (const near of [HOP_NEAR, HOP_NEAR_SMALL]) for (const [x, y] of ok.length ? [] : postSpots()) {
+      const d = dist(x, y, u.x, u.y);
+      if (d < near || d > HOP_FAR || !areaOf(u, x, y)) continue;
+      if (u.home && dist(x, y, u.home[0], u.home[1]) > HOP_HOME) continue;
+      if (units.some((o) => o !== u && ((o.post && bodyGap(x, y, o.post[0], o.post[1]) < DUEL_GAP) || bodyGap(x, y, o.fx, o.fy) < DUEL_GAP))) continue;
+      if (foes.some((f) => bodyGap(x, y, f.fx, f.fy) < HOP_FOE)) continue;
+      ok.push([x, y]);
+    }
+    if (ok.length) { u.post = u.hopAt = ok[Math.floor(rand() * ok.length)]; u.hopped = true; u.hopWalk = true; u.homing = false; u.think = 0; }
   }
 
   let areaOwner = null, areaUnits = [], areaPosts = [];
@@ -1126,6 +1150,21 @@ export function createHunt(opts = {}) {
 
   function radius(f) { return f.def.dragon ? 1.4 : f.def.radius || 0; }
 
+  function backOff(u, ux, uy, f, r, walkable) {
+    if (units.length < 2 || isMelee(u) || (u.atk && u.atk.t < u.atk.hit) || reachDist(ux, uy, f) >= BACK_CLOSE) return false;
+    const speed = (1.4 + HEROES[u.hero.key].stats.spd * 0.22) * (u.rot > 0 ? ROT_SLOW : 1);
+    const lo = Math.min(STANDOFF, r - 0.3);
+    const p = bfs(ux, uy, (x, y) => { const d = reachDist(x, y, f); return d >= lo && d <= r && roomy(x, y, u); }, walkable);
+    if (!p || !p.length || p.length > BACK_STEPS || u.cd + combatStats(u.hero).cd / 4 <= p.length / speed + BACK_SPARE) return false;
+    u.atk = null;
+    route(u, p);
+    u.goal = p[p.length - 1];
+    commit(u, null);
+    u.chase = f;
+    u.think = 0.3;
+    return true;
+  }
+
   function duelThink(u, ux, uy, r, melee, slotOf, open, clear) {
     const f = u.duel;
     const [px, py] = u.post || [ux, uy];
@@ -1140,7 +1179,9 @@ export function createHunt(opts = {}) {
       u.goal = null;
       u.chase = null;
       u.think = 0.2;
-      const near = dist(ux, uy, px, py) <= (f && !unready(f) ? 1 : 2) && areaOf(u, ux, uy);
+      if (f && !unready(f)) u.hopWalk = false;
+      const near = dist(ux, uy, px, py) <= (u.hopWalk ? HOP_STOP : f && !unready(f) ? 1 : 2) && areaOf(u, ux, uy);
+      if (near) u.hopWalk = false;
       if ((ux === px && uy === py) || (near && (units.length < 2 || !open(px, py)))) { u.path = []; return; }
       if (u.homing && u.path.length) return;
       const p = bfs(ux, uy, (x, y) => x === px && y === py, way) || bfs(ux, uy, (x, y) => x === px && y === py, open)
@@ -1152,6 +1193,7 @@ export function createHunt(opts = {}) {
     u.homing = false;
     const here = reachDist(ux, uy, f) <= r && (!melee || slotOf(ux, uy, f));
     if (here && (areaOf(u, ux, uy) || !bfs(ux, uy, (x, y) => areaOf(u, x, y) && reachDist(x, y, f) <= r && (!melee || slotOf(x, y, f)), way))) {
+      if (backOff(u, ux, uy, f, r, (x, y) => mine(x, y) && clear(x, y))) return;
       u.goal = [ux, uy]; commit(u, melee ? f : null); u.path = []; u.think = 0.1;
       return;
     }
@@ -1207,6 +1249,7 @@ export function createHunt(opts = {}) {
     const taken = (x, y) => units.some((o) => o !== u && o.goal && o.goal[0] === x && o.goal[1] === y);
     if (duels()) { duelThink(u, ux, uy, r, melee, slotOf, open, clear); return; }
     if (n && n.d <= r && room(n.foe) && (!melee || slotOf(ux, uy, n.foe))) {
+      if (backOff(u, ux, uy, n.foe, r, clear)) return;
       u.goal = [ux, uy]; commit(u, melee ? n.foe : null); u.think = 0.1;
       u.path = [];
       if (!roomy(ux, uy, u)) {
@@ -1691,7 +1734,11 @@ export function createHunt(opts = {}) {
 
   function kill(foe, hero) {
     foes = foes.filter((f) => f !== foe);
-    if (foe.duel) { foe.duel.refillAt = simT + REFILL_GAP; foe.duel.duel = null; foe.duel = null; }
+    if (foe.duel) {
+      const u = foe.duel;
+      u.refillAt = simT + REFILL_GAP; u.duel = null; foe.duel = null;
+      if (duels() && units.length > 1) hopPost(u);
+    }
     const def = foe.def;
     if (foe.summoned) {
       look.summonDown?.(foe);
@@ -1924,7 +1971,7 @@ export function createHunt(opts = {}) {
         const watch = inReach ? foe : n?.foe;
         if (watch) pose.aim?.(u, watch.fx - u.fx, watch.fy - u.fy);
       }
-      if ((u.think -= dt) <= 0 && !u.atk && heroThink(u) === 'gone') leaving.push(u);
+      if ((u.think -= dt) <= 0 && (!u.atk || (units.length > 1 && !isMelee(u) && u.atk.t >= u.atk.hit)) && heroThink(u) === 'gone') leaving.push(u);
     }
     if (leaving.length) {
       for (const u of units) if (broken(u.hero) && !leaving.includes(u) && heroThink(u) === 'gone') leaving.push(u);

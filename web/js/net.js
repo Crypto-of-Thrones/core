@@ -317,16 +317,43 @@ export async function auditEntryHash(prev, seq, ts, kind, json) {
 
 export const REDACTABLE_KIND = /^(wallet_swap_\w+|social_(link|link_refused|relink|unlink|giveaway)|chat\.report)$/;
 
-export async function verifyAuditChain(entries, expectedPrev) {
+export function showsMask(d) {
+  if (typeof d === 'string') {
+    try { d = JSON.parse(d); } catch { return false; }
+  }
+  if (Array.isArray(d)) return d.some(showsMask);
+  if (d && typeof d === 'object') return Object.entries(d).some(([k, x]) => /^hidden\d+$/.test(k) || (typeof x === 'string' ? x === 'hidden' || /(?<![0-9a-f])hidden(?![0-9a-f])/.test(x) || /^.*:\*{8}:\d+$/.test(x) : showsMask(x)));
+  return false;
+}
+
+export const REALM_PRIVATE_KIND = /^(giveawaySeal|giveawayDraw)$/;
+
+export async function verifyAuditChain(entries, expectedPrev, opts = {}) {
   let prev = expectedPrev ?? (entries[0] ? entries[0].prev : GENESIS);
+  const unverified = [];
   for (const e of entries) {
     if (e.prev !== prev) return { ok: false, at: e.seq, why: 'broken link' };
-    if (e.redacted === true && REDACTABLE_KIND.test(e.kind) && /^[0-9a-f]{64}$/.test(e.hash)) { prev = e.hash; continue; }
+    if (e.private === true) {
+      if (opts.realm !== true || !REALM_PRIVATE_KIND.test(e.kind) || !(e.data == null || e.data === 'null') || !/^[0-9a-f]{64}$/.test(e.hash)) {
+        return { ok: false, at: e.seq, why: 'private' };
+      }
+      unverified.push(e.seq);
+      prev = e.hash;
+      continue;
+    }
+    if (opts.realm === true && e.redacted !== undefined) return { ok: false, at: e.seq, why: 'redacted' };
+    const masked = e.data != null && e.data !== 'null';
+    if (e.redacted === true && masked && !showsMask(e.data)) return { ok: false, at: e.seq, why: 'mask' };
+    if (e.redacted === true && /^[0-9a-f]{64}$/.test(e.hash) && (masked || REDACTABLE_KIND.test(e.kind))) {
+      unverified.push(e.seq);
+      prev = e.hash;
+      continue;
+    }
     const h = await auditEntryHash(e.prev, e.seq, e.ts, e.kind, e.data);
     if (h !== e.hash) return { ok: false, at: e.seq, why: 'hash mismatch' };
     prev = h;
   }
-  return { ok: true, head: prev };
+  return { ok: true, head: prev, unverified };
 }
 
 export async function merkleRoot(hexLeaves) {

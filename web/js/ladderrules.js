@@ -56,3 +56,7 @@ export function tierItems(t) {
   if (t % 3) return [];
   return [[{ kind: 'potion', n: 5 }], [], [{ kind: 'summon', n: 1, floor: 'uncommon' }]][t / 3 - 1] || [{ kind: 'herobox', n: 1 }];
 }
+
+export const SPEND_GATED = Object.freeze(['slayer', 'waves']);
+
+export const spendGated = (id, t) => SPEND_GATED.includes(id) && tierItems(t).some((it) => it.kind === 'summon' || it.kind === 'herobox');
