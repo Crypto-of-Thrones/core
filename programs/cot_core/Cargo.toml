@@ -43,7 +43,7 @@ solana-transaction = "4.1.5"
 solana-message = "4.2.4"
 solana-instruction = "4.0.0"
 solana-address = "~2.7.0"
-solana-account = "4.3.0"
+solana-account = "5.0.0"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
