@@ -38,7 +38,7 @@ rand = "0.10"
 litesvm = { version = "0.18.2", features = ["precompiles"] }
 solana-clock = "4.0.0"
 solana-keypair = "3.1.2"
-solana-signer = "3.0.1"
+solana-signer = "4.0.0"
 solana-transaction = "4.1.5"
 solana-message = "4.2.4"
 solana-instruction = "4.0.0"
