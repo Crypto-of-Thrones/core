@@ -171,7 +171,7 @@ export async function verifyAccount(o, entries, { fetchFn, info, rulesRef = null
   const chain = await verifyChain(entries);
   const history = historyProblem(o, entries, head);
   for (const e of entries) {
-    const r = await verifyEntry(e, entries, { info, merkle, anchor, rulesRef, usdDay, duelLog }).catch((err) => ({ status: 'fail', why: err.message, steps: {} }));
+    const r = await verifyEntry(e, entries, { info, merkle, anchor, rulesRef, usdDay, mainnet: !!o.mainnet, duelLog }).catch((err) => ({ status: 'fail', why: err.message, steps: {} }));
     const why = (r.why === 'anchor' || r.steps.anchor === 'pending' || r.steps.anchor === 'unchecked' ? `anchor ${r.anchor?.status}: ${r.anchor?.why}` : r.why)
       || (r.merkle?.status === 'bad' ? `merkle: ${r.merkle.why}` : undefined)
       || (r.rules ? rulesHint(r.rules) : undefined);

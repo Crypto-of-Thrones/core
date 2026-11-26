@@ -3,17 +3,22 @@ import { MAINNET, SERVER_MODE } from './buildprofile.js';
 
 export const fieldPower = (f) => Math.cbrt((Math.max(0, f.atk) * Math.max(0, f.hp) * (BATTLE.armor + Math.max(0, f.def))) / BATTLE.armor);
 
-export function upsetChance(r, revenge = false) {
-  const L = revenge ? FIELD_LUCK.revenge : FIELD_LUCK.normal;
+export const FIELD_LUCK_SINCE = Date.UTC(2026, 10, 25, 6, 24, 0);
+export const FIELD_LUCK_RULES = Object.freeze([
+  Object.freeze({ normal: Object.freeze({ base: 0.15, floor: 0.05 }), revenge: Object.freeze({ base: 0.25, floor: 0.1 }), since: 0, until: Date.UTC(2026, 10, 25, 6, 25, 30) }),
+]);
+
+export function upsetChance(r, revenge = false, rule = FIELD_LUCK) {
+  const L = revenge ? rule.revenge : rule.normal;
   const k = Math.max(1, Number.isFinite(r) ? r : Infinity);
   return Math.max(L.floor, L.base / (k * k));
 }
 
-export function fieldLuck(att, dfd, attWon, roll, revenge = false) {
+export function fieldLuck(att, dfd, attWon, roll, revenge = false, rule = FIELD_LUCK) {
   const [w, l] = attWon ? [att, dfd] : [dfd, att];
   const pl = fieldPower(l);
   const r = pl > 0 ? Math.max(1, fieldPower(w) / pl) : Infinity;
-  const u = upsetChance(r, revenge);
+  const u = upsetChance(r, revenge, rule);
   const upset = roll < u;
   return { r, u, roll, upset, won: attWon !== upset };
 }

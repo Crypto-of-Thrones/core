@@ -19,7 +19,7 @@ export function heroSnap(h) {
   return out;
 }
 
-export function legInput(heroes, from, to, { live = false, paid, castle = -1, autoSend = true, keep = false, hunger = false, squire = false, oilUntil = 0, lots = [], realm = null } = {}) {
+export function legInput(heroes, from, to, { live = false, paid, castle = -1, autoSend = true, keep = false, hunger = false, squire = false, squireFarm = false, oilUntil = 0, lots = [], realm = null } = {}) {
   return {
     v: ENGINE_V,
     from,
@@ -35,6 +35,7 @@ export function legInput(heroes, from, to, { live = false, paid, castle = -1, au
     hunger: !!hunger,
     squire: !!squire,
     squireRest: true,
+    ...(squire && squireFarm ? { squireFarm: true } : {}),
     oilUntil: live && Number.isFinite(oilUntil) ? oilUntil : 0,
     lots: (lots || []).filter((l) => l && l.pool === 'farm').map((l) => ({ pool: 'farm', amount: l.amount, at: l.at })),
     heroes: heroes.map((h) => mintConvert(heroSnap(h), from)),
@@ -56,6 +57,7 @@ export function legRules({ castles, squire, boosts, lots } = {}, hunger = false)
     keep: !!boosts?.keep,
     hunger: !!hunger,
     squire: (squire?.owned || 0) > 0 && squire.on !== false,
+    squireFarm: squire?.mode === 'farm',
     oilUntil: Number.isFinite(boosts?.oil) ? boosts.oil : 0,
     lots: lots || [],
   };
@@ -127,7 +129,7 @@ export function runLeg(input, heroes = null, tap = null) {
         rest: (dt) => { restStep(part, dt, { castle, autoSend, keep, hunger }); at += dt * 1000; },
         squire: input.squire ? () => {
           const off = part.filter((h) => h.status !== 'work');
-          squirePass(part, castle, input.squireRest === true);
+          squirePass(part, castle, input.squireRest === true, input.squireFarm === true ? 'farm' : 'rarity');
           sent += off.filter((h) => h.status === 'work').length;
         } : null,
         broken: brokenOf, hit: hitShieldOf, onPay,

@@ -49,6 +49,23 @@ export const TRIAL = Object.freeze({
   wheelMinInvest: spendBase(2_500),
 });
 
+export const RECRUIT_GRANT = Object.freeze({
+  slots: 100,
+  usdMonth: 3,
+  months: 2,
+  cycleDays: 30,
+  firstAfterDays: 30,
+  activeDays: 20,
+  windowDays: 30,
+  discordMinAgeDays: 30,
+  xMinAgeDays: 30,
+  xMinFollowers: 50,
+  requireVerifyRole: false,
+  keepDaysAfterSpend: 30,
+  priceMaxAgeDays: 1,
+  betaUsdPx: 0.00284,
+});
+
 const it = (kind, n, extra) => ({ kind, n, ...extra });
 export const PASS = {
   levels: 25,
@@ -431,6 +448,7 @@ export const SQUIRE_LIST_BASE = SQUIRE.base;
 
 export const FUSION = { size: 4, cost: { common: 2500, uncommon: 5000, rare: 10000, epic: 25000 }, crit: 0.001, from: ['common', 'uncommon', 'rare', 'epic'] };
 
+export const PVP_COUNTED_FLAT_BASE = 1000;
 export const PVP = {
   mockOpen: !MAINNET && !SERVER_MODE,
   band: BALANCE.pvp.band,
@@ -453,7 +471,7 @@ export const PVP = {
   burstWait: 10,
   listMin: 300,
   counted: 0.1,
-  countedFlat: 1000,
+  countedFlat: PVP_COUNTED_FLAT_BASE,
   again: 6,
   relist: 24,
   revenge: 7,

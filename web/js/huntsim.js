@@ -155,9 +155,15 @@ export const squirePowerOf = (h) => heroPowerOf(h) - (isTrial(h) ? 1e6 : 0);
 const SQUIRE_RARITY_ORDER = Object.keys(RARITIES);
 export const squireRankOf = (h) => (isTrial(h) ? -1 : Math.max(0, SQUIRE_RARITY_ORDER.indexOf(HEROES[h.key]?.rarity)));
 
-export function squirePass(heroes, castle = null, restTired = true) {
+export function squirePass(heroes, castle = null, restTired = true, mode = 'rarity') {
   const bench = heroes.filter((x) => x.status === 'idle' && !brokenOf(x) && (restTired || x.energy >= maxEnergyOf(x) * SQUIRE.ready));
   return squireStep(heroes.filter((x) => x.status === 'work' || x.status === 'rest' || bench.includes(x)), {
-    cap: FIELD_CAP, slots: castle ? castle.slots : 0, ready: SQUIRE.ready, maxEnergy: maxEnergyOf, maxShield: maxShieldOf, power: squirePowerOf, rank: squireRankOf,
+    cap: FIELD_CAP, slots: castle ? castle.slots : 0, ready: SQUIRE.ready, maxEnergy: maxEnergyOf, maxShield: maxShieldOf, ...squireOrderOf(mode),
   }) > 0;
 }
+
+export const squireOrderOf = (mode) => (mode === 'farm'
+  ? { power: (h) => ruleRateOf(h), rank: (h) => (isTrial(h) ? -1 : 0) }
+  : { power: squirePowerOf, rank: squireRankOf });
+
+export const SQUIRE_MODES = ['rarity', 'farm'];

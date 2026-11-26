@@ -6,6 +6,42 @@ All notable changes to this repository are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.6.1] - 2026-11-25
+
+### Changed
+
+- The game server records, in each `pvpRaid` and `pvpDefense` reveal, the upset threshold
+  (`refs.u`), and in each `pvpRaid` reveal the counted floor (`refs.countedMin`). The verifier
+  requires `refs.u` to equal the threshold of the entry's era and checks the counted flag against
+  `refs.countedMin`. Entries without these fields verify as before.
+- `resolveRaid` (`web/js/pvprules.js`) takes an optional `{ rule, countedFlat }` and returns
+  `floor`; `countedMin` takes an optional flat floor. `web/js/data.js` adds
+  `PVP_COUNTED_FLAT_BASE`.
+- Hunt engine: Squire farm order (CRY-718). When the player opts in, the Squire can staff
+  mercenaries by farm rate instead of rarity; the default order is unchanged. The replay reads the
+  recorded `squireFarm`.
+- Lottery: the pot is the sum of what each ticket was sold for (`potOf`, `web/js/lottery.js`).
+- The on-chain program is unchanged from v0.1.4.
+
+### Added
+
+- Recruit Grant rules (`web/js/grant.js`) and their verifier check (`checkGrant`): the program is
+  not enabled on mainnet.
+
+### Fixed
+
+- A list of account ids masked to `hidden` (for example `refs.rows` and `refs.pool` of a
+  `pvpReroll` reveal) shows its mask: the row is `hidden`, not a forged row.
+- A chain run stopped by another row marked redacted with no mask answers `why: chain/mask` with
+  `at`, instead of `why: chain`.
+- Raids are replayed with the Field Luck rule of their era (`FIELD_LUCK_RULES`, `luckRulesAt`).
+- A Hero Box charge from before 2026-11-14 07:28:40 UTC with no `refs.price` is held to the
+  catalog price of its balance era.
+- A raid stamped with a balance version from before the 2026-11-19 reward factor settles its
+  counted floor at factor 1.
+
+Release notes: [docs/releases/v0.1.6.1.md](docs/releases/v0.1.6.1.md).
+
 ## [0.1.6] - 2026-11-25
 
 ### Changed

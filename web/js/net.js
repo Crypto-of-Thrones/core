@@ -321,10 +321,12 @@ export function showsMask(d) {
   if (typeof d === 'string') {
     try { d = JSON.parse(d); } catch { return false; }
   }
-  if (Array.isArray(d)) return d.some(showsMask);
-  if (d && typeof d === 'object') return Object.entries(d).some(([k, x]) => /^hidden\d+$/.test(k) || (typeof x === 'string' ? x === 'hidden' || /(?<![0-9a-f])hidden(?![0-9a-f])/.test(x) || /^.*:\*{8}:\d+$/.test(x) : showsMask(x)));
+  if (Array.isArray(d)) return d.some((x) => (typeof x === 'string' ? maskedValue(x) : showsMask(x)));
+  if (d && typeof d === 'object') return Object.entries(d).some(([k, x]) => /^hidden\d+$/.test(k) || (typeof x === 'string' ? maskedValue(x) : showsMask(x)));
   return false;
 }
+
+const maskedValue = (x) => x === 'hidden' || /(?<![0-9a-f])hidden(?![0-9a-f])/.test(x) || /^.*:\*{8}:\d+$/.test(x);
 
 export const REALM_PRIVATE_KIND = /^(giveawaySeal|giveawayDraw)$/;
 

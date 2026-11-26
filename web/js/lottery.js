@@ -48,9 +48,9 @@ export function entriesAt(rec, now) {
   return rows;
 }
 
-export function potOf(entries) {
+export function potOf(entries, sold) {
   const tickets = entries.reduce((s, x) => s + x.tickets, 0);
-  const total = tickets * LOTTERY.price;
+  const total = Number.isFinite(sold) ? sold : tickets * LOTTERY.price;
   const winners = Math.max(1, Math.min(LOTTERY.winners, entries.filter((x) => x.tickets > 0 && !x.banned).length));
   return { tickets, total, prize: Math.floor((total * LOTTERY.prizePct) / 100 / winners), pool: Math.floor((total * LOTTERY.poolPct) / 100) };
 }

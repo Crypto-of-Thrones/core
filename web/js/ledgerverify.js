@@ -18,7 +18,9 @@ import { checkHour, checkLive, splitWhy } from './huntengine.js';
 import { fightRound, dailyFight } from './promos.js';
 import { rollTreasure, heroPower } from './gear.js';
 import { drawSeed, playJoust, joustGearRefs, foesOf } from './joust.js';
-import { luckRoll } from './fieldluck.js';
+import { luckRoll, FIELD_LUCK_RULES, FIELD_LUCK_SINCE } from './fieldluck.js';
+import { FIELD_LUCK, PVP_COUNTED_FLAT_BASE } from './data.js';
+import { indexOnly } from './realmlive.js';
 import { resolveRaid } from './pvprules.js';
 import { isFighter, checkDuelLog } from './duelsim.js';
 import { DUEL, DUEL_BASE } from './data.js';
@@ -30,6 +32,8 @@ import { createFight, fightResult, WORLD_BOSS } from './worldboss.js';
 import { VIGIL_DRAW, fightOutcome, vigilDrawId } from './raidrules.js';
 import { routeOf, rollVoyage } from './expedition.js';
 import { rollWorkers, rollCatch, FISH_DRAW } from './homestead.js';
+import { RECRUIT_GRANT } from './data.js';
+import { payAmount, usdCentsOf } from './grant.js';
 
 const json = (x) => JSON.stringify(x);
 const gatedPair = (x) => Array.isArray(x) && x.length === 2 && Number.isSafeInteger(x[1]) && spendGated(x[0], x[1]);
@@ -154,8 +158,9 @@ export const RULES = {
       if (r.forced ? !(rank(rolled) <= rank(r.was) && r.rolled === nextRarity(r.was)) : rolled !== r.rolled) return false;
       const up = rank(r.rolled) > rank(r.was);
       if (up !== r.up || r.to !== (up ? r.rolled : r.was)) return false;
-      const refund = a.price > 0 ? Math.round(a.price * HERO_BOX.refund) : boxRefund();
-      if (r.refund !== (!up && r.rolled === r.was ? refund : 0)) return false;
+      const refunds = a.price > 0 ? [Math.round(a.price * HERO_BOX.refund)]
+        : heroBoxBeforePriceRef(ctx?.act) ? priceEras(dataOf(ctx.act)).map((e) => Math.round(priced(HERO_BOX.price, e) * HERO_BOX.refund)) : [boxRefund()];
+      if (!refunds.some((refund) => r.refund === (!up && r.rolled === r.was ? refund : 0))) return false;
       return !up || json(rollStats(r.rolled, rng)) === json(r.stats);
     },
   },
@@ -298,9 +303,8 @@ export const RULES = {
       if (a.att !== undefined && (json(a.att) !== json(r.att) || a.lootLeft !== r.lootLeft || json(a.defender?.dfd) !== json(r.dfd))) return false;
       if (r.att !== undefined) {
         if (a.defender && (a.defender.free !== r.free || a.defender.chest !== r.chest)) return false;
-        const o = raidReplay(r, draw);
-        return !!o && o.won === r.won && o.take === r.take && o.gain === r.gain && o.burned === r.burned && o.counted === r.counted
-          && (o.luck ? o.luck.roll === r.roll && o.luck.up === r.upset : r.roll === undefined);
+        return raidReplay(r, draw, ctx).some((o) => o.won === r.won && o.take === r.take && o.gain === r.gain && o.burned === r.burned && countedMatches(o, r)
+          && luckMatches(o, r));
       }
       if (a.defender?.free) return r.won === true && r.roll === undefined;
       if (r.roll !== undefined && r.roll !== luckRoll(draw.randomness, r.battle)) return false;
@@ -316,8 +320,7 @@ export const RULES = {
       if (a.att !== undefined && (json(a.att) !== json(r.att) || json(a.dfd) !== json(r.dfd) || a.lootLeft !== r.lootLeft)) return false;
       if (r.att !== undefined) {
         if (a.free !== r.free || a.chest !== r.chest || !!a.revenge !== r.revenge) return false;
-        const o = raidReplay(r, draw);
-        return !!o && r.held === !o.won && r.raidTake === o.take && (o.luck ? o.luck.roll === r.roll && o.luck.up === r.upset : r.roll === undefined);
+        return raidReplay(r, draw, ctx).some((o) => r.held === !o.won && r.raidTake === o.take && luckMatches(o, r));
       }
       if (a.free) return r.held === false && r.roll === undefined;
       return r.roll === undefined || r.roll === luckRoll(draw.randomness, r.battle);
@@ -512,13 +515,21 @@ const priced = (catalog, d) => {
   return d.index?.charge > 0 && d.index.charge !== 1 ? roundCot(base * d.index.charge) : base;
 };
 
+export const HERO_BOX_PRICE_REF_FROM = Date.UTC(2026, 10, 14, 7, 28, 40);
+
+function heroBoxBeforePriceRef(act) {
+  const round = dataOf(act || {}).draw?.round;
+  return Number.isFinite(act?.ts) && act.ts < HERO_BOX_PRICE_REF_FROM && Number.isSafeInteger(round) && roundTime(round, QUICKNET) < HERO_BOX_PRICE_REF_FROM + 60e3;
+}
+
 const PRICES = {
   summon: (a, d) => (d.from === 'card' ? 0 : milli(a.n * priced(a.mint === MINT_TIER.id && d.from !== 'war' ? mintCost() : summonCost(), d))),
   train: (a, d) => (a.free ? 0 : milli(priced(trainCost(a.stat), d))),
   joust: (a, d) => (a.queue === 'leave' ? undefined : a.free || a.match !== undefined ? 0 : milli(priced(JOUST.entry, d))),
   duel: (a, d) => (a.queue === 'join' ? milli(priced(DUEL.entry, d)) : a.match !== undefined ? 0 : undefined),
   fusion: (a, d) => milli(a.fusions * mintPrice(priced(FUSION.cost[a.rarity], d), a.mint === MINT_TIER.id ? a : null)),
-  heroBox: (a, d) => (a.price === priced(HERO_BOX.price, d) ? a.boxes * milli(a.price) : NaN),
+  heroBox: (a, d, act) => (a.price === undefined && heroBoxBeforePriceRef(act) ? a.boxes * milli(priced(HERO_BOX.price, d))
+    : a.price === priced(HERO_BOX.price, d) ? a.boxes * milli(a.price) : NaN),
   squire: (a) => {
     if (!(a.usd?.usd > 0) || a.offer) return undefined;
     if (a.usd.price !== SQUIRE.usd) return NaN;
@@ -528,18 +539,20 @@ const PRICES = {
   },
 };
 
+const priceEras = (d) => (d.balance === undefined ? [d, { ...d, atFactor1: true }]
+  : PRE_PRICE_FACTOR_BALANCES.has(d.balance) ? [{ ...d, atFactor1: true }] : [d]);
+
 export function priceOk(act) {
   const d = dataOf(act);
   const rule = Object.hasOwn(PRICES, d.kind) ? PRICES[d.kind] : null;
   if (!rule || d.stage !== 'act' || d.v !== 2 || d.chain?.lamports !== undefined) return null;
   const charged = d.chain?.amount !== undefined ? d.chain.amount
     : -['bot', 'chest', 'war', 'warBal'].reduce((t, k) => t + Math.min(0, d.delta?.[k] || 0), 0);
-  const eras = d.balance === undefined ? [d, { ...d, atFactor1: true }]
-    : PRE_PRICE_FACTOR_BALANCES.has(d.balance) ? [{ ...d, atFactor1: true }] : [d];
+  const eras = priceEras(d);
   let unknown = true;
   for (const e of eras) {
     let want;
-    try { want = rule(d.refs || {}, e); } catch { return false; }
+    try { want = rule(d.refs || {}, e, act); } catch { return false; }
     if (want === undefined) continue;
     unknown = false;
     if (Number.isSafeInteger(want) && charged === want) return true;
@@ -552,11 +565,11 @@ export const USD_DAY_CACHE_MS = 10 * 60e3;
 const USD_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const dayAfter = (day) => new Date(Date.parse(`${day}T00:00:00Z`) + 864e5).toISOString().slice(0, 10);
 
-export async function checkSquireUsd(usd, ts, getDay) {
+export async function checkUsdRef(usd, ts, getDay, maxDays) {
   const day = typeof usd?.day === 'string' && USD_DAY_RE.test(usd.day) ? usd.day : null;
   if (!day || !Number.isFinite(ts)) return 'bad';
   const age = usdRefAge(day, ts);
-  if (!(age >= 0 && age <= SQUIRE_USD_MAX_DAYS)) return 'bad';
+  if (!(age >= 0 && age <= maxDays)) return 'bad';
   if (typeof getDay !== 'function') return 'wait';
   const read = async (d) => {
     const r = await getDay(d);
@@ -580,6 +593,49 @@ export async function checkSquireUsd(usd, ts, getDay) {
   }
   return 'ok';
 }
+
+const GRANT_SCALE = 1000;
+const isAmount = (x) => Number.isSafeInteger(x) && x >= 0;
+
+function bolsaPart(fv) {
+  if (!fv || typeof fv !== 'object') return NaN;
+  const parts = Array.isArray(fv.parts) ? fv.parts : [fv];
+  return parts.filter((p) => p?.program === 'bolsa').reduce((t, p) => t + (isAmount(p.amount) ? p.amount : NaN), 0);
+}
+
+export const GRANT_CHECKED = new Set(['grantPay', 'grantVoid', 'withdraw', 'withdrawEarly']);
+
+export async function checkGrant(e, d, opts = {}) {
+  const r = d.refs || {};
+  const chest = (n) => creditsExactly({ entry: e }, { chest: n });
+  if (d.kind === 'grantVoid') {
+    const fv = r.farmVoid;
+    return fv?.program === 'bolsa' && isAmount(fv.amount) && chest(-fv.amount) ? 'ok' : 'bad';
+  }
+  if (d.kind === 'withdraw' || d.kind === 'withdrawEarly') {
+    if (r.farmVoid === undefined) return null;
+    const part = bolsaPart(r.farmVoid);
+    return isAmount(part) && isAmount(r.amount) && chest(-(r.amount + part)) ? 'ok' : 'bad';
+  }
+  if (d.kind !== 'grantPay') return null;
+  if (r.farmVoid !== undefined) {
+    const fv = r.farmVoid;
+    const ok = fv?.program === 'bolsa' && isAmount(fv.amount) && r.amount === 0 && isAmount(r.released) && r.released <= fv.amount;
+    return ok && chest(-(fv.amount - r.released)) ? 'ok' : 'bad';
+  }
+  const p = r.price || {};
+  const px = p.usd;
+  if (!(typeof px === 'number' && Number.isFinite(px) && px > 0) || !(r.amount > 0) || !isAmount(r.amount) || !isAmount(r.chestLeft)) return 'bad';
+  if (r.amount !== payAmount(px, r.chestLeft + r.amount, GRANT_SCALE, 1)) return 'bad';
+  if (r.usdCents !== usdCentsOf(r.amount, px, GRANT_SCALE) || r.usdMonth !== RECRUIT_GRANT.usdMonth) return 'bad';
+  if (!chest(r.amount)) return 'bad';
+  if (p.src === 'beta') return opts.mainnet !== true && px === RECRUIT_GRANT.betaUsdPx && p.day === undefined && p.dayHash === undefined ? 'ok' : 'bad';
+  if (p.src !== 'index') return 'bad';
+  const s = await checkUsdRef({ usd: px, day: p.day, hash: p.dayHash }, e.ts, opts.usdDay, RECRUIT_GRANT.priceMaxAgeDays);
+  return s === 'bad' ? 'usdRef' : s;
+}
+
+export const checkSquireUsd = (usd, ts, getDay) => checkUsdRef(usd, ts, getDay, SQUIRE_USD_MAX_DAYS);
 
 const passDrawCount = (items) => Math.max(1, (items || []).reduce((t, it) => t + (it.kind === 'summon' || it.kind === 'herobox' ? (it.n || 1) * 3 : 0), 0));
 
@@ -643,8 +699,24 @@ const lootPaid = (r, amount, ctx) => {
 
 const noChestPay = (ctx) => !((ctx?.entry ? dataOf(ctx.entry).delta || {} : {}).chest);
 
-const raidReplay = (r, draw) => (r.round !== draw.round ? null
-  : resolveRaid({ battle: r.battle, round: r.round, att: r.att, dfd: r.dfd, free: r.free, chest: r.chest, lootLeft: r.lootLeft, revenge: r.revenge }, draw.randomness));
+export function luckRulesAt(ts, round, info = QUICKNET) {
+  const rt = roundTime(round, info);
+  const t = Number.isFinite(ts) ? ts : rt;
+  const out = FIELD_LUCK_RULES.filter((L) => t >= L.since && t < L.until && rt < L.until);
+  if (t >= FIELD_LUCK_SINCE) out.push(FIELD_LUCK);
+  return out;
+}
+
+const countedFlatOf = (ctx) => (PRE_PRICE_FACTOR_BALANCES.has(dataOf(ctx?.entry || {}).balance) ? indexOnly(PVP_COUNTED_FLAT_BASE) : undefined);
+
+const raidReplay = (r, draw, ctx) => (r.round !== draw.round ? []
+  : luckRulesAt(ctx?.entry?.ts, draw.round, ctx?.info || QUICKNET).map((rule) => resolveRaid({ battle: r.battle, round: r.round, att: r.att, dfd: r.dfd, free: r.free, chest: r.chest, lootLeft: r.lootLeft, revenge: r.revenge }, draw.randomness, { rule, countedFlat: countedFlatOf(ctx) })));
+
+const luckMatches = (o, r) => (o.luck ? o.luck.roll === r.roll && o.luck.up === r.upset && (r.u === undefined || o.luck.u === r.u)
+  : r.roll === undefined && r.u === undefined);
+
+const countedMatches = (o, r) => (r.countedMin === undefined ? o.counted === r.counted
+  : Number.isFinite(r.countedMin) && r.countedMin > 0 && r.countedMin <= (r.chest / 1000) * PVP.counted * 1000 && r.counted === (o.won && o.take >= r.countedMin));
 
 const LOTTERY_SLACK_MS = 120e3;
 export const LOTTERY_PINNED_DAY = Math.floor(Date.UTC(2026, 10, 20) / 86400e3);
@@ -717,7 +789,7 @@ export async function verifyEntry(e, entries, opts = {}) {
   const upTo = entries.filter((x) => x.seq <= e.seq);
   const c = await verifyChain(upTo.length ? upTo : [e], { realm: opts.realm === true });
   steps.chain = c.ok && upTo.some((x) => x.hash === e.hash) ? 'ok' : 'bad';
-  if (steps.chain === 'bad') return bad('chain');
+  if (steps.chain === 'bad') return c.why === 'mask' ? { ...bad('chain/mask'), at: c.at } : bad('chain');
 
   const d = dataOf(e);
   if (opts.merkle) {
@@ -735,6 +807,13 @@ export async function verifyEntry(e, entries, opts = {}) {
   if (e.redacted === true && !masked) return hidden();
   if (e.private === true) return done({ status: 'hidden', steps, why: 'private' });
   if (!masked && d.stage === 'act' && ownRules(d) && priceOk(e) === false) return bad('price');
+  if (!masked && d.v === 2 && GRANT_CHECKED.has(d.kind) && ownRules(d)) {
+    const g = await checkGrant(e, d, opts);
+    if (g === 'bad') return bad('rule');
+    if (g === 'usdRef') return bad('usdRef');
+    if (g === 'wait') return done({ status: 'wait', steps, why: 'usdRef' });
+    if (g === 'ok') steps.rule = 'ok';
+  }
   if (!masked && d.stage === 'act' && d.kind === 'squire' && d.refs?.usd !== undefined) {
     steps.usd = await checkSquireUsd(d.refs.usd, e.ts, opts.usdDay);
     if (steps.usd === 'bad') return bad('usdRef');
