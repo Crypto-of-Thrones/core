@@ -315,6 +315,18 @@ export async function auditEntryHash(prev, seq, ts, kind, json) {
   return toHex(await sha256(utf8(`${prev}\n${seq}\n${ts}\n${kind}\n${json}`)));
 }
 
+export const LEDGER_REF_DOMAIN = 'COT_LEDGER_REF_V1';
+
+export const LEDGER_REF_SALT_FROM = Date.UTC(2026, 11, 1);
+
+const HEX64 = /^[0-9a-f]{64}$/;
+
+export async function ledgerRefOf(entryHash, salt) {
+  if (salt == null) return entryHash;
+  if (!HEX64.test(salt) || !HEX64.test(entryHash)) throw new Error('ledgerRefOf: salt and entry hash must be 64 hex');
+  return toHex(await sha256(concat(utf8(LEDGER_REF_DOMAIN), fromHex(salt), fromHex(entryHash))));
+}
+
 export const REDACTABLE_KIND = /^(wallet_swap_\w+|social_(link|link_refused|relink|unlink|giveaway)|chat\.report)$/;
 
 export function showsMask(d) {

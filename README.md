@@ -127,6 +127,24 @@ entries. Exit code 0 only says that every check that ran passed: a run that repl
 50 draw entries also exits 0. Only the X replayed entries had their outcome recomputed; the others were
 checked by their drand signature or left for the release of their rules.
 
+### What a run proves
+
+A `PASS` row means the entry is in the account's hash chain, in an anchored epoch, and that a rule
+of this repository re-ran it: a drand draw replayed to the same outcome, a fixed reward table, the
+catalog price of a paid action, or the queue join that paid a match. One kind of `PASS` re-runs
+nothing: an entry of a kind that moves no value at all (equipping owned gear, wearing a cosmetic,
+an invite or social record, the account's opening entry) passes when it has no balance change and
+only the fields its kind is written with. Its row says `rule=none` and `(no value moved)`, and the
+summary counts these entries on a `NOTE:` line, apart from the replayed ones.
+
+Every other entry that no rule here re-runs yet (a hunt send, a drop, a quest reward, an invite
+commission, a dungeon or voyage collect, a beta grant, a lottery ticket, a trial grant, a US$
+return conversion, and more) is proven by its hash chain and anchor only. It reports `SIG` with
+`(no rule)`, and the run ends `PASS, NOT FINAL` with the `norule` reason. Many accounts therefore
+do not reach a final `PASS` today. That is the honest state of the verifier, not a regression: an
+entry is called fully proven only when a rule re-ran it, and each new rule turns its kind's rows
+into `PASS` without any change to the ledger.
+
 To build the on-chain program reproducibly (needs Docker and Rust):
 
 ```sh

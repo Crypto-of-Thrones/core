@@ -6,6 +6,41 @@ All notable changes to this repository are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-11-26
+
+### Fixed
+
+- External report (byfor): a hunt hour that overlaps a Fight Hour window replays in full only
+  against the realm log commitment of its day, published before the drand round of the window.
+  Without that record the entry is `SIG` (`why: fight record not read`), never `PASS`.
+- Internal review: each reveal is held to one paid act of its own kind and credits only what its
+  payout rule gives.
+- Internal review: a Duel or Joust bind needs the paid queue join of its lord; one join backs one
+  bind.
+- Internal review: every action entry must use the current (v2) format once the account's chain
+  uses it, and always on mainnet.
+- Internal review: the live Field Luck rule of a raid is chosen from the era of its drand round.
+- Internal review: an act whose reveal is served masked ends as `hidden`, never `PASS`.
+- Internal review: an on-chain order whose signature is served masked reads `hidden`, not `bad`.
+- Internal review: after a raid hold is released (`pvpDefense` cancel) and held again, its
+  reveal binds to the live act, not the cancelled one.
+- Internal review: grants and credits are re-checked against the rule of their kind (fixed
+  tables, Hero Box pity, raid and hold inputs, lake trip catch size, Duel time limit, on-chain
+  order signature, balance stamp era); an unanchored hour dated in the future fails.
+
+### Changed
+
+- An entry with no rule to re-run passes only when its kind moves no value (`INERT_KINDS`) and
+  it holds only its written fields; its row says `rule=none` and `(no value moved)` and the
+  summary counts these on a `NOTE:` line. Any other such entry is `SIG` with `why: no rule`
+  (`norule` reason). An entry that carries a draw is never `no rule`, so it counts in the
+  `replayed X of N draw entries` line.
+- README: new section "What a run proves".
+- privacy: on-chain withdrawal references no longer link a wallet to a game account; earlier withdrawals keep the previous form
+- The on-chain program is unchanged from v0.1.4.
+
+Release notes: [docs/releases/v0.1.7.md](docs/releases/v0.1.7.md).
+
 ## [0.1.6.1] - 2026-11-25
 
 ### Changed

@@ -284,6 +284,7 @@ export async function checkDuelLog(r, want) {
   if (!rec || typeof rec !== 'object' || !Array.isArray(rec.log) || !rec.end) return { status: 'none' };
   const bad = (why) => ({ status: 'bad', why });
   if (rec.match !== want.match) return bad('match');
+  if (want.max !== undefined && (rec.max ?? DUEL_FIGHT.maxTicks) !== want.max) return bad('max');
   const same = (x, y) => !!x && !!y && ['atk', 'def', 'hp'].every((k) => x[k] === y[k]);
   if ((want.a || want.b) && !(same(rec.a?.fighter, want.a) && same(rec.b?.fighter, want.b))) return bad('fighters');
   const ENDS = ['winner', 'reason', 'tick', 'hpA', 'hpB'];

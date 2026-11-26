@@ -130,7 +130,9 @@ export function notFinalReasons(rows) {
   const rules = rows.filter((x) => x.label === 'RULES');
   if (rules.length) reasons.push({ code: 'rules', count: rules.length, commits: [...new Set(rules.map((x) => x.rules))] });
   if (n('PEND') + n('UNCHECKED')) reasons.push({ code: 'anchors', count: n('PEND') + n('UNCHECKED'), pending: n('PEND'), unchecked: n('UNCHECKED') });
-  if (n('SIG')) reasons.push({ code: 'sig', count: n('SIG') });
+  const norule = rows.filter((x) => x.label === 'SIG' && x.why === 'no rule').length;
+  if (n('SIG') - norule) reasons.push({ code: 'sig', count: n('SIG') - norule });
+  if (norule) reasons.push({ code: 'norule', count: norule });
   if (n('HIDDEN')) reasons.push({ code: 'hidden', count: n('HIDDEN') });
   if (n('WAIT')) reasons.push({ code: 'wait', count: n('WAIT') });
   return reasons;
@@ -139,6 +141,7 @@ export function notFinalReasons(rows) {
 function reasonText(x) {
   if (x.code === 'rules') return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} recorded under other rules (${x.commits.join(', ')}), rule replay not run: re-check them with the core release of those rules or --rules-ref any`;
   if (x.code === 'sig') return `${x.count} ${x.count === 1 ? 'draw' : 'draws'} checked by drand signature only: no rule replayed the outcome (a kind without a replay rule, or its public record not readable here)`;
+  if (x.code === 'norule') return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} with no rule to re-run (no draw, fixed table or price): proven by the hash chain and anchor only`;
   if (x.code === 'hidden') return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} hidden by the public view (wallets shortened or data withheld), not verified here: the account verifies them in full in its Statement`;
   if (x.code === 'anchors') return `${x.count} ${x.count === 1 ? 'anchor' : 'anchors'} not final (${x.pending} pending, ${x.unchecked} not read on chain)`;
   return `${x.count} ${x.count === 1 ? 'entry' : 'entries'} still waiting for a check`;
@@ -167,11 +170,12 @@ export async function verifyAccount(o, entries, { fetchFn, info, rulesRef = null
   });
   const usdDay = (day) => getJson(fetchFn, `${o.base}/realm/index/day/${day}`);
   const duelLog = (match) => getJson(fetchFn, `${o.base}/duel/${encodeURIComponent(match)}/log`);
+  const claimRef = o.acct && o.rpc ? { rpc: o.rpc, programId: o.program, fetchFn } : undefined;
   const rows = [];
   const chain = await verifyChain(entries);
   const history = historyProblem(o, entries, head);
   for (const e of entries) {
-    const r = await verifyEntry(e, entries, { info, merkle, anchor, rulesRef, usdDay, mainnet: !!o.mainnet, duelLog }).catch((err) => ({ status: 'fail', why: err.message, steps: {} }));
+    const r = await verifyEntry(e, entries, { info, merkle, anchor, rulesRef, usdDay, mainnet: !!o.mainnet, duelLog, claimRef }).catch((err) => ({ status: 'fail', why: err.message, steps: {} }));
     const why = (r.why === 'anchor' || r.steps.anchor === 'pending' || r.steps.anchor === 'unchecked' ? `anchor ${r.anchor?.status}: ${r.anchor?.why}` : r.why)
       || (r.merkle?.status === 'bad' ? `merkle: ${r.merkle.why}` : undefined)
       || (r.rules ? rulesHint(r.rules) : undefined);
@@ -182,7 +186,8 @@ export async function verifyAccount(o, entries, { fetchFn, info, rulesRef = null
   for (const x of rows) counts[x.label] = (counts[x.label] || 0) + 1;
   const ok = chain.ok && !history && entries.length > 0 && !rows.some((x) => FAIL.has(x.status));
   const final = ok && rows.every((x) => x.label === 'PASS');
-  return { ok, final, reasons: ok && !final ? notFinalReasons(rows) : [], chain, history, rows, counts };
+  const inert = rows.filter((x) => x.status === 'ok' && x.steps?.rule === 'none').length;
+  return { ok, final, reasons: ok && !final ? notFinalReasons(rows) : [], chain, history, rows, counts, inert };
 }
 
 export function report(o, entries, v) {
@@ -195,6 +200,7 @@ export function report(o, entries, v) {
   }
   const tally = Object.entries(v.counts).map(([k, n]) => `${n} ${k}`).join(', ') || 'no entries';
   const why = (v.reasons || []).map(reasonText).join('; ');
+  if (v.inert) lines.push(`NOTE: ${v.inert} of the passing ${v.inert === 1 ? 'entries moves' : 'entries move'} no value (no rule to re-run): proven by the hash chain and anchor, and by holding only the fields of a kind that changes nothing`);
   lines.push(replayLine(replayTally(v.rows)));
   lines.push(`${v.ok ? (v.final ? 'PASS' : `PASS, NOT FINAL (${why || 'not every entry passed'})`) : 'FAIL'}: ${tally}`);
   const w = hiddenWarning(v.rows);
@@ -208,9 +214,11 @@ export function hiddenWarning(rows) {
   return `WARNING: ${k} hidden ${k === 1 ? 'entry was' : 'entries were'} NOT verified: their data is withheld or masked by the public view, so a dishonest server could have hidden a draw or a payment there (a drand proof they show was still checked). Only the account's own Statement verifies them in full.`;
 }
 
+const noRuleRow = (x) => x.label === 'SIG' && x.why === 'no rule';
+
 export function noReplayLine(rows) {
   const replayed = rows.filter((x) => x.steps?.rule === 'ok').length;
-  const skipped = rows.filter((x) => x.label === 'RULES' || x.label === 'SIG');
+  const skipped = rows.filter((x) => x.label === 'RULES' || (x.label === 'SIG' && !noRuleRow(x)));
   if (replayed || !skipped.length) return null;
   const commits = [...new Set(skipped.filter((x) => x.rules).map((x) => x.rules))];
   const how = commits.length
@@ -221,7 +229,7 @@ export function noReplayLine(rows) {
 
 export function replayTally(rows) {
   const replayed = rows.filter((x) => x.steps?.rule === 'ok').length;
-  const signatureOnly = rows.filter((x) => x.label === 'SIG').length;
+  const signatureOnly = rows.filter((x) => x.label === 'SIG' && !noRuleRow(x)).length;
   const otherRules = rows.filter((x) => x.label === 'RULES').length;
   return { replayed, total: replayed + signatureOnly + otherRules, signatureOnly, otherRules };
 }
@@ -252,7 +260,7 @@ export async function main(argv, deps = {}) {
   const v = await verifyAccount(o, entries, { fetchFn, info: deps.info, rulesRef, now, head });
   const warning = hiddenWarning(v.rows);
   const noReplay = v.ok ? noReplayLine(v.rows) : null;
-  out(o.json ? JSON.stringify({ pid: o.pid, ok: v.ok, final: v.final, reasons: v.reasons, ...(warning ? { warning } : {}), ...(noReplay ? { noReplay } : {}), replay: replayTally(v.rows), chain: v.chain, history: v.history, counts: v.counts, entries: v.rows }, null, 2)
+  out(o.json ? JSON.stringify({ pid: o.pid, ok: v.ok, final: v.final, reasons: v.reasons, ...(warning ? { warning } : {}), ...(noReplay ? { noReplay } : {}), replay: replayTally(v.rows), chain: v.chain, history: v.history, counts: v.counts, inert: v.inert, entries: v.rows }, null, 2)
     : `${report(o, entries, v)}${noReplay ? `\n${noReplay}` : ''}`);
   return v.ok ? (noReplay ? 3 : 0) : 1;
 }

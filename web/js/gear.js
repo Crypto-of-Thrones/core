@@ -101,6 +101,11 @@ export const strongestIds = (mercs, max, powerOf, blocked = () => false) => merc
   .slice(0, Math.max(0, max))
   .map(([m]) => m.id);
 
+export function pickerOrder(mercs, powerOf) {
+  const pow = new Map(mercs.map((x) => [x, powerOf(x)]));
+  return mercs.sort((a, b) => onHunt(a) - onHunt(b) || pow.get(b) - pow.get(a) || ORDER.indexOf(HEROES[b.key].rarity) - ORDER.indexOf(HEROES[a.key].rarity) || b.level - a.level);
+}
+
 export function strongestPick(mercs, max, min, powerOf, blocked = () => false) {
   const ids = strongestIds(mercs.filter((m) => !onHunt(m)), max, powerOf, blocked);
   const need = Math.min(max, min) - ids.length;
@@ -146,7 +151,9 @@ export function gearBonus(g) {
   const out = { atk: 0, def: 0, hp: 0 };
   if (!g) return out;
   for (const s of ALL_SLOTS) {
-    const p = g.items.find((x) => x.id === g.equipped[s]);
+    const id = g.equipped?.[s];
+    if (id == null) continue;
+    const p = g.items.find((x) => x.id === id);
     const d = gearDef(p);
     if (d) { out.atk += d.atk; out.def += d.def; out.hp += d.hp; }
   }
