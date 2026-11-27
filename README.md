@@ -83,13 +83,14 @@ node tools/verify/verify.mjs <audit-id> --base https://api-beta.cot.gg --rpc htt
 every entry (only with `--acct`: without it the `merkle` step is reported as `skip`), the
 anchoring transaction on Solana, every drand beacon, and re-runs the rule of each entry. It checks every entry to the end, prints one line per entry and a summary, and then exits
 with code 1 if any check failed (0 when everything passed, 2 on a usage error or when the ledger
-cannot be read, 3 when every check passed but no draw was replayed, see below). Useful flags:
+cannot be read, 3 when every check passed but no draw was replayed or, with `--mainnet`, an anchor
+was not read on chain, see below). Useful flags:
 
 | Flag | Meaning |
 |---|---|
 | `--base URL` | The game server that serves the public ledger (`https://api.cot.gg` on mainnet, `https://api-beta.cot.gg` for the beta) |
 | `--rpc URL` | Any Solana JSON-RPC endpoint; the anchors are read on chain through it |
-| `--mainnet` | Mainnet rules: `--rpc` is required and only `settle_epoch` anchors are accepted |
+| `--mainnet` | Mainnet rules: `--rpc` is required, only `settle_epoch` anchors are accepted, and every anchor must be read on chain (a pass that skipped one exits 3) |
 | `--acct ACCT` | Optional: the account's own id (40 hex characters), needed only for the Merkle step; the public proof leaves it out |
 | `--file entries.json` | Verify a saved copy of the ledger instead of downloading it |
 | `--from YYYY-MM-DD`, `--days N` | Limit the time window |
@@ -119,6 +120,15 @@ only), no outcome was verified, so the run prints a `NOT VERIFIED: 0 of N draw e
 (`noReplay` in `--json`) and exits with code 3. Each server deploy records its own commit, so a
 release often matches none of them: re-run with the release named in that line, or with
 `--rules-ref any`.
+
+With `--mainnet` every anchor is mandatory. A run in which every check passed but the anchor step
+of some entry did not run (no `--acct`, or a proof route that serves only the leaf hash) prints a
+`NOT VERIFIED: K of N entries had no anchor read on chain` line (`anchorSkip` in `--json`) and
+exits with code 3, never 0. The public proof route serves only the leaf hash (it leaves out the
+fields a wallet guess could be tested against), so a third-party run with `--mainnet` currently
+ends with this line: the chain, the drand beacons and the rule replays are still checked and
+reported, but the anchor is not. The account owner checks the Merkle step and the anchor in the
+game's Statement. Without `--mainnet` the same run stays `PASS, NOT FINAL` with exit code 0.
 
 Read the `replayed X of N draw entries (Y signature only, Z other rules)` line that every run prints
 before its verdict (`replay` in `--json`, with `replayed`, `total`, `signatureOnly` and

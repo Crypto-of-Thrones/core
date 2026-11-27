@@ -6,6 +6,38 @@ All notable changes to this repository are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-11-28
+
+### Fixed
+
+- External report: identical copies of one collective record (`dragonBox`, `lotteryDraw`,
+  `bossPrize`, `vigilPrize`) fail as `bad` (`bound`).
+- External report: an act whose `rules` label names another commit, and its reveals, end `rules`,
+  never `ok`.
+- External report: hunt and away returns hold `0 <= roiVault <= roiCut <= earned`.
+- External report: a replayed hunt hour needs ordered, non-overlapping legs inside the hour, realm
+  factors in (0, 1] and a castle bonus and `farmDays` table the game paid with.
+- External report: a Fight Hour day listed twice in `refs.fight` fails.
+- External report: a Hero Box reveal reads exactly the uniforms of its box and opens on the rarity
+  the box before it left.
+- External report: PvP rerolls, Farm worker summons and lake trips are priced.
+- External report: a cancel that voids a live act must be dated before the act's round.
+- External report: with `--mainnet`, a lottery day before the pinned rule fails, the pre-launch
+  branches are off, and every hunt hour carries the fixed factor and each leg its tables.
+- External report: with `--mainnet`, a run whose anchor step was skipped prints a `NOT VERIFIED`
+  line (`anchorSkip`) and exits 3.
+
+### Changed
+
+- `tools/verify/verify.mjs` retries a 503 of the public audit route for the whole deploy window
+  (up to 330 s).
+- A Squire can be listed on the Market between 10,000 and 10,000,000 tokens (`MARKET.squireFloor`,
+  `MARKET.squireTop`); selling one needs the season's pass.
+- A shield repair opens only at 90% of its max or below (`POTIONS.repairAtPct`, `repairOpen`).
+- The on-chain program is unchanged from v0.1.4.
+
+Release notes: [docs/releases/v0.1.9.md](docs/releases/v0.1.9.md).
+
 ## [0.1.8] - 2026-11-27
 
 ### Fixed

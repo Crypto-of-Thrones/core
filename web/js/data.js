@@ -412,6 +412,7 @@ export function shieldWear(h, units) {
 
 export const POTIONS = {
   repair: { common: 1, uncommon: 3, rare: 6, epic: 8, legendary: 11, mythic: 15 },
+  repairAtPct: 90,
   firstOffPct: 50,
   healKit: 40,
   packs: [
@@ -424,6 +425,7 @@ export const POTIONS = {
   ],
 };
 export const REPAIR_RANGE = { min: Math.min(...Object.values(POTIONS.repair)), max: Math.max(...Object.values(POTIONS.repair)) };
+export const repairOpen = (shield, max) => shield * 100 <= max * POTIONS.repairAtPct;
 
 export const WHEEL_PACKS = [
   { n: 1, price: 7000 },
@@ -792,6 +794,8 @@ export const MARKET = {
   maxPrice: 5,
   heroFloor: { epic: 150000, legendary: 500000, mythic: 1500000 },
   horseFloor: 500,
+  squireFloor: 10000,
+  squireTop: 10000000,
   heroBase: { common: 6000, uncommon: 12000, rare: 25000, epic: 60000, legendary: 150000, mythic: 400000 },
   levelStep: 0.25,
   gearBase: { common: 1500, uncommon: 4000, rare: 10000, epic: 30000, legendary: 90000, mythic: 300000 },

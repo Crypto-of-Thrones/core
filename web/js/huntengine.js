@@ -201,8 +201,45 @@ export function replayHour(engine, fight = []) {
   };
 }
 
+function legsWhy(refs) {
+  const legs = refs.engine?.legs;
+  if (!Array.isArray(legs)) return null;
+  const t = (v) => Number.isFinite(v);
+  let at = refs.from;
+  if (!t(refs.from) || !t(refs.to) || refs.from > refs.to) return 'legs';
+  for (const leg of legs) {
+    if (!leg || !t(leg.from) || !t(leg.to) || leg.from < at || leg.to < leg.from || leg.to > refs.to) return 'legs';
+    at = leg.to;
+    const f = (v) => v === undefined || (t(v) && v > 0 && v <= 1);
+    if (leg.realm !== undefined && (!leg.realm || !f(leg.realm.emission) || !f(leg.realm.index))) return 'realm';
+    if (leg.castle >= 0 && leg.castleBonus !== undefined && leg.castleBonus !== CASTLES[leg.castle]?.bonus && leg.castleBonus !== RECORDED_CASTLE_BONUS[leg.castle]) return 'castle';
+    if (leg.farmDays !== undefined && !farmDaysKnown(leg.farmDays)) return 'farmDays';
+  }
+  return null;
+}
+
+export const RECORDED_CASTLE_BONUS = Object.freeze([0, 25, 50, 80, 115, 150]);
+
+export const RECORDED_FARM_DAYS = Object.freeze([
+  Object.freeze({ common: 65.60000000000001, uncommon: 22.496000000000002, rare: 13.52, epic: 6.720000000000001, legendary: 2.6528, mythic: 1.4072 }),
+  Object.freeze({ common: 162.5, uncommon: 56.25, rare: 37.5, epic: 30, legendary: 22.5, mythic: 17.5 }),
+]);
+
+export function farmDaysKnown(days) {
+  const same = (a) => Object.keys(FARM.days).every((r) => days?.[r] === a[r]) && Object.keys(days || {}).length === Object.keys(a).length;
+  return same(FARM.days) || RECORDED_FARM_DAYS.some(same);
+}
+
+export function fightRepeated(fight) {
+  if (!Array.isArray(fight)) return false;
+  const days = fight.map((f) => f?.day);
+  return new Set(days).size !== days.length;
+}
+
 export function checkHour(refs, warShare) {
   if (!refs?.engine) return { ok: false, why: 'no engine input' };
+  const inputWhy = fightRepeated(refs.fight) ? 'fight' : legsWhy(refs);
+  if (inputWhy) return { ok: false, why: inputWhy };
   let replay;
   try {
     replay = replayHour(refs.engine, refs.fight);
@@ -218,7 +255,14 @@ export function checkHour(refs, warShare) {
   return why ? { ok: false, why, replay } : { ok: true, replay };
 }
 
+export function roiBoundsOk(refs) {
+  const cut = refs?.roiCut ?? 0;
+  const vault = refs?.roiVault ?? 0;
+  return Number.isSafeInteger(cut) && Number.isSafeInteger(vault) && vault >= 0 && vault <= cut && cut <= refs.earned;
+}
+
 export function splitWhy(refs, warShare) {
+  if (!roiBoundsOk(refs)) return 'roi';
   const live = refs.live || null;
   const f = refs.forgiven;
   if (f !== undefined) {
@@ -255,7 +299,7 @@ export const liveOk = (live, gross, warShare) => {
     && live.earned === liveEarned(live.gross, f) && live.war === liveWar(live.earned, warShare);
 };
 
-export const checkLive = (r, warShare) => liveFloorOk(r.floor) && Number.isFinite(r.prev) && Number.isFinite(r.gross) && r.prev >= 0 && r.gross >= r.prev
+export const checkLive = (r, warShare) => roiBoundsOk(r) && liveFloorOk(r.floor) && Number.isFinite(r.prev) && Number.isFinite(r.gross) && r.prev >= 0 && r.gross >= r.prev
   && r.earned === liveEarned(r.gross, r.floor) - liveEarned(r.prev, r.floor)
   && r.war === liveWar(liveEarned(r.gross, r.floor), warShare) - liveWar(liveEarned(r.prev, r.floor), warShare)
   && r.chest + r.war + (r.roiCut || 0) === r.earned;

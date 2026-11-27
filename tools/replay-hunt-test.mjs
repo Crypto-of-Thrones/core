@@ -9,7 +9,7 @@ import { spreadOf, LIVE_FLOOR, HUNT_MULT } from '../web/js/huntsim.js';
 import { auditEntryHash, GENESIS } from '../web/js/net.js';
 import { deriveOutcome } from '../web/js/drand.js';
 import { REALM_LIVE } from '../web/js/realmlive.js';
-import { ENGINE_V, LEGACY_CASTLE_BONUS, LEGACY_FARM_DAYS, farmDaysOf, legInput, runLeg, replayHour, checkHour, carryLeg, fightBonus, heroSnap, HERO_FIELDS, liveEarned, liveWar, checkLive } from '../web/js/huntengine.js';
+import { ENGINE_V, LEGACY_CASTLE_BONUS, LEGACY_FARM_DAYS, farmDaysOf, legInput, runLeg, replayHour, checkHour, carryLeg, fightBonus, heroSnap, HERO_FIELDS, liveEarned, liveWar, checkLive, farmDaysKnown, RECORDED_CASTLE_BONUS, RECORDED_FARM_DAYS } from '../web/js/huntengine.js';
 import { replayInput } from './replay-hunt.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -115,7 +115,7 @@ await test('hours recorded before castleBonus replay on the castle table they we
   assert.equal(checkHour(good, PVP.share).ok, true);
   const bent = structuredClone(good);
   bent.engine.legs[0].castleBonus += 10;
-  assert.equal(checkHour(bent, PVP.share).why, 'gross');
+  assert.equal(checkHour(bent, PVP.share).why, 'castle');
   bent.engine.legs[0].castleBonus = -1;
   assert.equal(checkHour(bent, PVP.share).ok, false);
 });
@@ -129,7 +129,7 @@ await test('hours recorded before farmDays replay on the farm days they were pai
   assert.equal(checkHour(good, PVP.share).ok, true);
   const bent = structuredClone(good);
   bent.engine.legs[0].farmDays.legendary *= 2;
-  assert.equal(checkHour(bent, PVP.share).why, 'gross');
+  assert.equal(checkHour(bent, PVP.share).why, 'farmDays');
   bent.engine.legs[0].farmDays.legendary = 0;
   assert.equal(checkHour(bent, PVP.share).ok, false);
   bent.engine.legs[0].farmDays.legendary = FARM.days.legendary;
@@ -183,6 +183,56 @@ await test('checkHour accepts an honest hour and names what a tampered one chang
   const withFight = refsOf(h.two, replayHour(h.two, fight), mult, { fight });
   assert.equal(checkHour(withFight, PVP.share).ok, true);
   assert.equal(checkHour({ ...withFight, fight: [] }, PVP.share).why, 'gross');
+  const twice = [...fight, ...fight];
+  assert.equal(checkHour(refsOf(h.two, replayHour(h.two, twice), mult, { fight: twice }), PVP.share).why, 'fight');
+});
+
+await test('a leg replays only on a castle bonus and FARM.days table the game paid with', () => {
+  const h = hours();
+  const mult = spreadOf(0.73);
+  assert.ok(farmDaysKnown(FARM.days));
+  CASTLES.forEach((c, i) => assert.ok(c.bonus === RECORDED_CASTLE_BONUS[i], `tier ${i}: add the new CASTLES table beside RECORDED_CASTLE_BONUS`));
+  for (const days of RECORDED_FARM_DAYS) assert.ok(farmDaysKnown(days));
+  const tampered = (fn) => { const e = structuredClone(h.two); fn(e.legs[0]); return checkHour(refsOf(e, replayHour(e), mult), PVP.share).why; };
+  assert.equal(tampered((l) => { l.farmDays = { ...l.farmDays, common: 1 }; }), 'farmDays');
+  assert.equal(tampered((l) => { l.castle = 1; l.castleBonus = 999; }), 'castle');
+  assert.equal(tampered((l) => { l.castle = 1; l.castleBonus = RECORDED_CASTLE_BONUS[1]; }), undefined);
+});
+
+await test('the return cut stays 0 <= roiVault <= roiCut <= earned', () => {
+  const h = hours();
+  const good = refsOf(h.one, replayHour(h.one), HUNT_MULT, { fixed: true });
+  const cut = Math.floor(good.chest / 10);
+  const vault = Math.floor(cut / 2);
+  const withCut = { ...good, chest: good.chest - cut, roiCut: cut, roiPct: 10, roiVault: vault };
+  assert.equal(checkHour(withCut, PVP.share).ok, true);
+  const negCut = { ...good, chest: good.chest + 500, roiCut: -500 };
+  const bigVault = { ...withCut, roiVault: cut + 1 };
+  const negVault = { ...withCut, roiVault: -1 };
+  const overCut = { ...good, chest: -1000, roiCut: good.chest + 1000 + good.war, war: 0 };
+  for (const [name, r] of [['negCut', negCut], ['bigVault', bigVault], ['negVault', negVault], ['overCut', overCut]]) assert.equal(checkHour(r, PVP.share).why, 'roi', name);
+  const [c1] = liveCredits(good.gross, HUNT_MULT);
+  assert.equal(checkLive({ ...c1, chest: c1.chest - 10, roiCut: 10, roiPct: 10, roiVault: 4 }, PVP.share), true);
+  assert.equal(checkLive({ ...c1, chest: c1.chest + 10, roiCut: -10 }, PVP.share), false);
+  assert.equal(checkLive({ ...c1, chest: c1.chest - 10, roiCut: 10, roiVault: 11 }, PVP.share), false);
+});
+
+await test('the engine input is the server\'s shape (legs in order inside the hour, realm factors in (0, 1])', () => {
+  const h = hours();
+  const mult = spreadOf(0.73);
+  const two = refsOf(h.two, replayHour(h.two), mult);
+  assert.equal(checkHour(two, PVP.share).ok, true);
+  const tamper = (fn) => { const r = structuredClone(two); fn(r); return checkHour(r, PVP.share).why; };
+  assert.equal(tamper((r) => r.engine.legs.reverse()), 'legs');
+  assert.equal(tamper((r) => { r.engine.legs[1].from -= 60e3; }), 'legs');
+  assert.equal(tamper((r) => { r.from += 1; }), 'legs');
+  assert.equal(tamper((r) => { r.to -= 1; }), 'legs');
+  for (const [k, v] of [['emission', 1.5], ['emission', 0], ['index', 2], ['index', -1], ['index', 'x']]) {
+    assert.equal(tamper((r) => { r.engine.legs[0].realm[k] = v; }), 'realm', `${k} ${v}`);
+  }
+  const low = structuredClone(h.one);
+  low.legs[0].realm = { emission: 0.5, index: 1 };
+  assert.equal(checkHour(refsOf(low, replayHour(low), mult), PVP.share).ok, true);
 });
 
 function liveCredits(gross, floor) {

@@ -83,18 +83,21 @@ export function codeRef(dir = fileURLToPath(new URL('../..', import.meta.url))) 
 }
 
 const sleepMs = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const TRIES_503 = 5;
+const WAIT_503_MS = 330_000;
 
 async function getJson(fetchFn, url, sleep = sleepMs) {
+  let waited = 0;
   for (let attempt = 1; ; attempt++) {
     const res = await fetchFn(url);
-    if (res.status === 503 && attempt < TRIES_503) {
+    if (res.status === 503 && waited < WAIT_503_MS) {
       const s = Number.parseInt(res.headers?.get?.('retry-after'), 10);
-      await sleep(1000 * Math.min(30, Math.max(1, Number.isFinite(s) ? s : 5)));
+      const ms = 1000 * Math.min(30, Math.max(1, Number.isFinite(s) ? s : 5));
+      await sleep(ms);
+      waited += ms;
       continue;
     }
     if (res.status === 404) return null;
-    if (res.status === 503) throw new Error(`${url}: HTTP 503 after ${TRIES_503} attempts (server is finishing a deploy; run again in a few minutes)`);
+    if (res.status === 503) throw new Error(`${url}: HTTP 503 after ${attempt} attempts in ${Math.round(waited / 1000)} s (server is finishing a deploy; run again in a few minutes)`);
     if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
     return res.json();
   }
@@ -234,6 +237,13 @@ export function replayTally(rows) {
   return { replayed, total: replayed + signatureOnly + otherRules, signatureOnly, otherRules };
 }
 
+export function anchorSkipLine(o, rows) {
+  if (!o.mainnet) return null;
+  const k = rows.filter((x) => x.steps?.anchor === 'skip' || x.steps?.anchor === 'unchecked').length;
+  if (!k) return null;
+  return `NOT VERIFIED: ${k} of ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'} had no anchor read on chain, and --mainnet requires every anchor (pass --acct with a proof route that serves the whole leaf; exit code 3)`;
+}
+
 export function replayLine(t) {
   return `replayed ${t.replayed} of ${t.total} ${t.total === 1 ? 'draw entry' : 'draw entries'} (${t.signatureOnly} signature only, ${t.otherRules} other rules)`;
 }
@@ -243,7 +253,7 @@ export async function main(argv, deps = {}) {
   const fetchFn = deps.fetchFn || ((...a) => globalThis.fetch(...a));
   const o = parseArgs(argv);
   if (o.error) {
-    out(`error: ${o.error}\nusage: node tools/verify/verify.mjs <pid> [--acct ACCT] [--base URL] [--rpc URL] [--anchor-key PUBKEY] [--mainnet] [--program ID] [--known SEQ:HASH] [--from YYYY-MM-DD] [--days N] [--file entries.json] [--json]`);
+    out(`error: ${o.error}\nusage: node tools/verify/verify.mjs <pid> [--acct ACCT] [--base URL] [--rpc URL] [--anchor-key PUBKEY] [--mainnet] [--program ID] [--known SEQ:HASH] [--from YYYY-MM-DD] [--days N] [--file entries.json] [--json]\n  --mainnet requires every anchor read on chain: a pass that skipped any anchor (no --acct) exits 3, NOT VERIFIED`);
     return 2;
   }
   const now = deps.now ?? Date.now();
@@ -260,9 +270,10 @@ export async function main(argv, deps = {}) {
   const v = await verifyAccount(o, entries, { fetchFn, info: deps.info, rulesRef, now, head });
   const warning = hiddenWarning(v.rows);
   const noReplay = v.ok ? noReplayLine(v.rows) : null;
-  out(o.json ? JSON.stringify({ pid: o.pid, ok: v.ok, final: v.final, reasons: v.reasons, ...(warning ? { warning } : {}), ...(noReplay ? { noReplay } : {}), replay: replayTally(v.rows), chain: v.chain, history: v.history, counts: v.counts, inert: v.inert, entries: v.rows }, null, 2)
-    : `${report(o, entries, v)}${noReplay ? `\n${noReplay}` : ''}`);
-  return v.ok ? (noReplay ? 3 : 0) : 1;
+  const anchorSkip = v.ok ? anchorSkipLine(o, v.rows) : null;
+  out(o.json ? JSON.stringify({ pid: o.pid, ok: v.ok, final: v.final, reasons: v.reasons, ...(warning ? { warning } : {}), ...(noReplay ? { noReplay } : {}), ...(anchorSkip ? { anchorSkip } : {}), replay: replayTally(v.rows), chain: v.chain, history: v.history, counts: v.counts, inert: v.inert, entries: v.rows }, null, 2)
+    : `${report(o, entries, v)}${noReplay ? `\n${noReplay}` : ''}${anchorSkip ? `\n${anchorSkip}` : ''}`);
+  return v.ok ? (noReplay || anchorSkip ? 3 : 0) : 1;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) process.exitCode = await main(process.argv.slice(2));

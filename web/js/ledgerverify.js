@@ -15,7 +15,7 @@ export { MARKET_TAX10_FROM } from './marketrules.js';
 import { LADDER_RULES as LADDER, tierOf, tierItems, spendGated } from './ladderrules.js';
 import { LOTTERY, DRAW_KIND, drawAt, drawId, drawUniforms, drawWinners, sealedEntries } from './lottery.js';
 import { spreadOf, HUNT_MULT } from './huntsim.js';
-import { checkHour, checkLive, splitWhy } from './huntengine.js';
+import { checkHour, checkLive, splitWhy, roiBoundsOk, fightRepeated } from './huntengine.js';
 import { fightRound, dailyFight } from './promos.js';
 import { rollTreasure, heroPower } from './gear.js';
 import { drawSeed, playJoust, joustGearRefs, foesOf } from './joust.js';
@@ -26,6 +26,7 @@ import { resolveRaid } from './pvprules.js';
 import { isFighter, checkDuelLog, DUEL_FIGHT } from './duelsim.js';
 import { DUEL, DUEL_BASE } from './data.js';
 import { SQUIRE } from './data.js';
+import { HOMESTEAD } from './data.js';
 import { squireFullPrice, usdRefAge, SQUIRE_USD_MAX_DAYS } from './squire.js';
 import { pagePromoPrice } from './pagepromo.js';
 import { boxContents } from './boxrules.js';
@@ -142,7 +143,7 @@ export function joustCharge(act, entries) {
   return typeof id === 'string' ? (entries || []).find((x) => dataOf(x).actionId === id && dataOf(x).stage === 'act') || null : act;
 }
 
-function liveAct(e, entries) {
+function liveAct(e, entries, info = QUICKNET) {
   const d = dataOf(e);
   const run = d.actionId ? entries.filter((x) => dataOf(x).actionId === d.actionId).sort((x, y) => x.seq - y.seq) : [];
   const acts = run.filter((x) => dataOf(x).stage === 'act');
@@ -154,6 +155,8 @@ function liveAct(e, entries) {
     const p = lastBefore(c.seq);
     if (!p) return entries.some((x) => x.seq === 1) ? null : 'wait';
     if (p.kind !== c.kind || voided.has(p) || run.some((x) => x.seq > p.seq && x.seq < c.seq && dataOf(x).stage === 'reveal')) return null;
+    const pr = dataOf(p).draw?.round;
+    if (!Number.isSafeInteger(pr) || !(c.ts < roundTime(pr, info))) return null;
     voided.add(p);
   }
   if (acts.slice(0, -1).some((x) => !voided.has(x))) return null;
@@ -225,6 +228,7 @@ export const RULES = {
       const paid = Object.values(dataOf(ctx?.entry || {}).delta || {});
       if (paid.length > 1 || paid.some((x) => !(x > 0)) || (paid[0] || 0) !== milli(r.refund + (r.back || 0))) return false;
       if (r.unopened !== undefined && a.price > 0 && r.back !== r.unopened * a.price) return false;
+      if (!heroBoxShareOk(r, ctx)) return false;
       const [from, to] = r.uniforms || [];
       const rng = slice(u, from, to);
       const rolled = rollBox(rng);
@@ -234,7 +238,7 @@ export const RULES = {
       const up = rank(r.rolled) > rank(r.was);
       if (up !== r.up || r.to !== (up ? r.rolled : r.was)) return false;
       const refunds = a.price > 0 ? [Math.round(a.price * HERO_BOX.refund)]
-        : heroBoxBeforePriceRef(ctx?.act) ? priceEras(dataOf(ctx.act)).map((e) => Math.round(priced(HERO_BOX.price, e) * HERO_BOX.refund)) : [boxRefund()];
+        : legacyOk(ctx) && heroBoxBeforePriceRef(ctx?.act) ? priceEras(dataOf(ctx.act)).map((e) => Math.round(priced(HERO_BOX.price, e) * HERO_BOX.refund)) : [boxRefund()];
       if (!refunds.some((refund) => r.refund === (!up && r.rolled === r.was ? refund : 0))) return false;
       const ok = !up || json(rollStats(r.rolled, rng)) === json(r.stats);
       return ok && pity === null ? null : ok;
@@ -242,9 +246,10 @@ export const RULES = {
   },
   train: {
     count: () => 1,
-    check: (u, a, r) => {
+    check: (u, a, r, extra, draw, ctx) => {
       if (r.chance !== a.chance) return false;
       if (a.floor === undefined) {
+        if (!legacyOk(ctx)) return false;
         return trainChance(a.tries, LEGACY_TRAIN_FLOOR) === a.chance && rollTraining(a.tries, () => u[0], LEGACY_TRAIN_FLOOR) === r.ok;
       }
       const rules = [TRAINING.chance, ...TRAIN_RULES].filter((x) => x.floor === a.floor);
@@ -346,7 +351,7 @@ export const RULES = {
       const from = b ? a.mine : a.rating;
       const rating = won ? from + JOUST.winRating : Math.max(JOUST.floor, from - JOUST.lossRating);
       if (a.win !== undefined && !(Number.isSafeInteger(a.win) && a.win >= 0 && a.win <= joustWinCap(ctx, draw, ctx?.info))) return false;
-      if (a.win === undefined && !(draw && roundTime(draw.round, ctx?.info) < JOUST_WIN_FROM)) return false;
+      if (a.win === undefined && !(legacyOk(ctx) && draw && roundTime(draw.round, ctx?.info) < JOUST_WIN_FROM)) return false;
       if (a.foeWin !== undefined && !(a.match !== undefined && !a.free && a.win !== undefined && typeof a.foeEntry === 'string' && a.foeEntry !== '' && Number.isSafeInteger(a.foeWin) && a.foeWin >= 0 && a.foeWin <= joustWinCap(ctx, draw, ctx?.info))) return false;
       const win = (a.win ?? milli(JOUST_BASE.winBefore)) + (a.foeWin ?? 0);
       const met = b
@@ -541,6 +546,33 @@ export const RULES = {
   },
 };
 
+export function heroBoxShareOk(r, ctx) {
+  const u = r.uniforms;
+  if (!Number.isSafeInteger(r.box) || r.box < 1 || !Array.isArray(u) || u.length !== 2 || u[0] !== 3 * (r.box - 1) || u[1] !== 3 * r.box) return false;
+  if (!ctx?.entry) return true;
+  const entries = ctx.entries || [];
+  const id = dataOf(ctx.entry).actionId;
+  if (r.box > 1) {
+    const prev = entries.find((x) => x.kind === 'heroBox' && x.redacted !== true && dataOf(x).actionId === id && dataOf(x).stage === 'reveal' && dataOf(x).refs?.box === r.box - 1);
+    return !prev || dataOf(prev).refs.to === r.was;
+  }
+  const before = heroBefore(entries, Math.min(ctx.entry.seq, ...entries.filter((x) => x.kind === 'heroBox' && dataOf(x).actionId === id).map((x) => x.seq)));
+  return before === null || before === r.was;
+}
+
+function heroBefore(entries, seq) {
+  const back = entries.filter((x) => x.seq < seq).sort((a, b) => b.seq - a.seq);
+  for (const x of back) {
+    if (x.kind === 'account_reset' || x.kind === 'accountMoveIn' || x.redacted === true) return null;
+    const d = dataOf(x);
+    if (d.stage !== 'reveal') continue;
+    if (x.kind === 'heroBox') return typeof d.refs?.to === 'string' ? d.refs.to : null;
+    const rows = Array.isArray(d.refs?.hero) ? d.refs.hero : [];
+    if (rows.length) return typeof rows.at(-1)?.to === 'string' ? rows.at(-1).to : null;
+  }
+  return back.some((x) => x.seq === 1) ? 'free' : null;
+}
+
 export function boxPityOk(rev, r, entries) {
   const need = HERO_BOX.ranks?.[r.was]?.pity;
   if (!Number.isSafeInteger(need) || !Number.isSafeInteger(r.box) || r.box < 1) return false;
@@ -598,8 +630,8 @@ const creditsExactly = (ctx, want) => {
 };
 
 const PAID = {
-  hunt: (a, r, ctx) => creditsExactly(ctx, { chest: r.chest, war: r.war, warBal: r.roiVault || 0 }),
-  away: (a, r, ctx) => creditsExactly(ctx, { chest: r.chest, war: r.war, warBal: r.roiVault || 0 }),
+  hunt: (a, r, ctx) => roiBoundsOk(r) && creditsExactly(ctx, { chest: r.chest, war: r.war, warBal: r.roiVault || 0 }),
+  away: (a, r, ctx) => roiBoundsOk(r) && creditsExactly(ctx, { chest: r.chest, war: r.war, warBal: r.roiVault || 0 }),
   joust: (a, r, ctx) => creditsExactly(ctx, r.cancelled ? {} : { chest: r.pay || 0 }),
   duel: (a, r, ctx) => {
     if (r.cancelled) return creditsExactly(ctx, {});
@@ -653,6 +685,13 @@ const PRICES = {
   fusion: (a, d) => milli(a.fusions * mintPrice(priced(FUSION.cost[a.rarity], d), a.mint === MINT_TIER.id ? a : null)),
   heroBox: (a, d, act) => (a.price === undefined && heroBoxBeforePriceRef(act) ? a.boxes * milli(priced(HERO_BOX.price, d))
     : a.price === priced(HERO_BOX.price, d) ? a.boxes * milli(a.price) : NaN),
+  pvpReroll: (a, d) => {
+    if (a.paid === false) return 0;
+    if (a.paid !== true || a.burned === undefined) return undefined;
+    return PVP.rerollCost.some((c) => milli(priced(c, d)) === a.burned) ? a.burned : NaN;
+  },
+  farmWorker: (a, d) => (Number.isSafeInteger(a.n) && a.n > 0 ? a.n * milli(priced(HOMESTEAD.summon.cost, d)) : NaN),
+  farmFish: () => 0,
   squire: (a) => {
     if (a.quote?.cot > 0 && !a.offer) {
       return milli(a.promo ? (a.promo.full === a.quote.cot ? pagePromoPrice(a.quote.cot) : NaN) : a.quote.cot);
@@ -870,7 +909,8 @@ const huntCount = (r) => 1 + (Array.isArray(r.dropRolls) ? Math.max(0, ...r.drop
 export const HUNT_ENGINE_FROM = Date.UTC(2026, 10, 14);
 
 async function huntCheck(u, r, info, draw, ctx) {
-  if (r.engine === undefined && !(draw && roundTime(draw.round, info) < HUNT_ENGINE_FROM)) return false;
+  if (r.engine === undefined && !(legacyOk(ctx) && draw && roundTime(draw.round, info) < HUNT_ENGINE_FROM)) return false;
+  if (!legacyOk(ctx) && (r.fixed !== true || (r.engine?.legs || []).some((l) => l?.farmDays === undefined || (l?.castle >= 0 && l.castleBonus === undefined)))) return false;
   if (r.mult !== (r.fixed === true ? HUNT_MULT : spreadOf(u[0])) || splitWhy(r, PVP.share)) return false;
   if (r.gross !== undefined && r.earned !== Math.max(0, Math.floor(r.gross * r.mult * 1000))) return false;
   if (r.engine !== undefined && !checkHour(r, PVP.share).ok) return false;
@@ -881,6 +921,7 @@ async function huntCheck(u, r, info, draw, ctx) {
       if (!want || json(want) !== json(items)) return false;
     }
   }
+  if (fightRepeated(r.fight)) return false;
   let unread = false;
   for (const f of r.fight || []) {
     const p = await fightPaid(f, r, info, ctx?.context);
@@ -917,10 +958,12 @@ const lootPaid = (r, amount, ctx) => {
 const noChestPay = (ctx) => !((ctx?.entry ? dataOf(ctx.entry).delta || {} : {}).chest);
 
 export const RAID_INPUTS_FROM = Date.UTC(2026, 10, 13);
-const legacyRaid = (draw, ctx) => !!draw && roundTime(draw.round, ctx?.info) < RAID_INPUTS_FROM;
+const legacyRaid = (draw, ctx) => legacyOk(ctx) && !!draw && roundTime(draw.round, ctx?.info) < RAID_INPUTS_FROM;
+
+const legacyOk = (ctx) => ctx?.mainnet !== true;
 
 export const RAID_ACT_INPUTS_FROM = Date.UTC(2026, 10, 17, 1, 46);
-const raidActInputs = (draw, ctx) => !!draw && roundTime(draw.round, ctx?.info) >= RAID_ACT_INPUTS_FROM;
+const raidActInputs = (draw, ctx) => !legacyOk(ctx) || (!!draw && roundTime(draw.round, ctx?.info) >= RAID_ACT_INPUTS_FROM);
 
 export function luckRulesAt(ts, round, info = QUICKNET) {
   const rt = roundTime(round, info);
@@ -944,6 +987,20 @@ const countedMatches = (o, r) => (r.countedMin === undefined ? o.counted === r.c
   : Number.isFinite(r.countedMin) && r.countedMin > 0 && r.countedMin <= (r.chest / 1000) * PVP.counted * 1000 && r.counted === (o.won && o.take >= r.countedMin));
 
 export const COLLECTIVE = new Set(['lotteryDraw', 'vigilPrize', 'bossPrize', 'dragonBox']);
+
+const COLLECTIVE_KEY = {
+  lotteryDraw: (r) => (Number.isSafeInteger(r.day) ? String(r.day) : null),
+  bossPrize: (r) => (typeof r.event === 'string' && r.event ? r.event : null),
+  vigilPrize: (r) => (typeof r.fight === 'string' && r.fight ? r.fight : null),
+  dragonBox: (r) => (typeof r.fight === 'string' && r.fight && typeof r.box === 'string' && r.box ? `${r.fight}|${r.box}` : null),
+};
+
+export function collectiveTwin(rev, entries) {
+  const keyOf = Object.hasOwn(COLLECTIVE_KEY, rev.kind) ? COLLECTIVE_KEY[rev.kind] : null;
+  const key = keyOf ? keyOf(dataOf(rev).refs || {}) : null;
+  if (key === null) return false;
+  return entries.some((x) => x !== rev && x.seq !== rev.seq && x.kind === rev.kind && keyOf(dataOf(x).refs || {}) === key);
+}
 
 const RECORD_KINDS = new Set(['lotteryDraw', 'vigilPrize', 'bossPrize']);
 
@@ -978,8 +1035,9 @@ export function vigilBound(r, draw, info, entries) {
   return typeof r.fight === 'string' && r.fight.slice(0, 10) >= VIGIL_PINNED_DAY ? false : null;
 }
 
-export const lotteryBound = (r, draw, info) => {
+export const lotteryBound = (r, draw, info, mainnet = false) => {
   if (!Number.isSafeInteger(r.day) || roundTime(draw.round, info) <= drawAt(r.day)) return false;
+  if (mainnet === true && r.day < LOTTERY_PINNED_DAY) return false;
   if (r.late === true) return r.rebound === undefined && draw.round === drawRound(drawAt(r.day) + LOTTERY_SLACK_MS, info);
   if (r.day >= LOTTERY_PINNED_DAY && (r.rebound !== undefined || draw.round !== drawRound(drawAt(r.day) + LOTTERY_SLACK_MS, info))) return false;
   if (r.sealedAt !== undefined && !(Number.isSafeInteger(r.sealedAt) && r.sealedAt < roundTime(draw.round, info))) return false;
@@ -1088,6 +1146,8 @@ export async function verifyEntry(e, entries, opts = {}) {
   }
   if (!masked && opts.mainnet === true && PRE_PRICE_FACTOR_BALANCES.has(d.balance)) return bad('stamp', d.draw?.round);
   let actProven = false;
+  let actRules = null;
+  if (!masked && d.stage === 'act' && !ownRules(d) && Object.hasOwn(PRICES, d.kind)) actRules = d.rules;
   if (!masked && d.stage === 'act' && ownRules(d) && Object.hasOwn(PRICES, d.kind)) {
     const g = stampGate([e], d.draw?.round);
     if (g) return g;
@@ -1173,6 +1233,7 @@ export async function verifyEntry(e, entries, opts = {}) {
     if (st === false) return bad('rule');
     if (hasStatic && Object.hasOwn(STATIC_PAID, e.kind) && STATIC_PAID[e.kind](d.refs, d, opts) === false) return bad('amount');
     if (st === true) steps.rule = 'ok';
+    if (actRules) return done({ status: 'rules', steps: { ...steps, rule: 'other' }, rules: actRules });
     if (st !== true && !actProven) {
       if (inertEntry(e, d, opts)) return done({ status: 'ok', steps: { ...steps, rule: 'none' }, why: 'no value moved' });
       return done({ status: 'sig', steps, why: 'no rule' });
@@ -1182,7 +1243,7 @@ export async function verifyEntry(e, entries, opts = {}) {
 
   if (masked && !d.draw.randomness) return hidden(d.draw.round);
   const same = (x) => d.actionId && dataOf(x).actionId === d.actionId;
-  const live = liveAct(e, entries);
+  const live = liveAct(e, entries, info);
   if (live === 'wait') return done({ status: 'wait', steps, why: 'act', round: d.draw.round });
   if (!live) return bad('bound', d.draw.round);
   const reveals = d.draw.randomness ? [e] : live.cancelled ? [] : entries.filter((x) => same(x) && dataOf(x).draw?.randomness);
@@ -1196,6 +1257,7 @@ export async function verifyEntry(e, entries, opts = {}) {
     if (revs.some((x) => x.kind !== act.kind || dataOf(x).stage !== 'reveal' || x.seq < act.seq) || !revealsFit(act.kind, dataOf(act).refs || {}, revs)) return bad('bound', round);
   }
   let actSigMasked = false;
+  if (!masked && act && act !== e && !ownRules(dataOf(act)) && Object.hasOwn(PRICES, act.kind)) actRules ||= dataOf(act).rules;
   if (!masked && act && act !== e && ownRules(dataOf(act)) && Object.hasOwn(PRICES, act.kind)) {
     const g = stampGate([act], round);
     if (g) return g;
@@ -1234,10 +1296,11 @@ export async function verifyEntry(e, entries, opts = {}) {
       if (rd.actionId && !entries.some((x) => x.seq === 1)) return done({ status: 'wait', steps, why: 'act', round });
       return bad('bound', round);
     }
+    if (!act && COLLECTIVE.has(rev.kind) && !rd.actionId && collectiveTwin(rev, entries)) return bad('bound', round);
 
     const ad = act ? dataOf(act) : null;
     const boundOk = ad ? (rebindMasked ? null : rebind ? !!moved && rebindOk(moved, draw.round) : ad.draw?.round === draw.round && act.ts < roundTime(draw.round, info))
-      : masked ? null : rd.kind === DRAW_KIND ? lotteryBound(rd.refs || {}, draw, info)
+      : masked ? null : rd.kind === DRAW_KIND ? lotteryBound(rd.refs || {}, draw, info, opts.mainnet === true)
         : rd.kind === 'vigilPrize' ? vigilBound(rd.refs || {}, draw, info, entries) : null;
     if (boundOk === false) return bad('bound', round);
     if (boundOk) steps.bound = 'ok';
@@ -1272,7 +1335,7 @@ export async function verifyEntry(e, entries, opts = {}) {
     try {
       const u = await deriveOutcome(draw.randomness, rule.id ? rule.id(rr) : rd.actionId, rd.kind, rule.count(ar, rr));
       const extra = opts.context ? await opts.context(rd.kind, rr).catch(() => null) : null;
-      ok = await rule.check(u, ar, rr, extra, draw, { entries, acct: opts.acct || acctOf(entries), entry: rev, act, info, era, context: opts.context });
+      ok = await rule.check(u, ar, rr, extra, draw, { entries, acct: opts.acct || acctOf(entries), entry: rev, act, info, era, context: opts.context, mainnet: opts.mainnet === true });
     } catch {
       ok = false;
     }
@@ -1290,6 +1353,7 @@ export async function verifyEntry(e, entries, opts = {}) {
     if (ok === true && rr.pityBefore !== undefined && (await pityBroken(rev, rr, entries)) === true) return bad('pity', round);
   }
   if (masked || rebindMasked || revMasked || actSigMasked) return hidden(round);
+  rulesNeed ||= actRules;
   return done(rulesNeed ? { status: 'rules', steps, round, rules: rulesNeed } : sigOnly ? { status: 'sig', steps, round, ...(sigWhy ? { why: sigWhy } : {}) } : { status: 'ok', steps, round });
 }
 
