@@ -115,11 +115,15 @@ export function normalizeVouchers(v) {
 
 export const rewardOf = (n, track) => PASS.rewards[n - 1]?.[track] || null;
 
+export const EARLY_KINDS = Object.freeze(new Set(['boat']));
+
+export const earlyReward = (items) => (items || []).some((it) => EARLY_KINDS.has(it.kind));
+
 export function rewardState(rec, n, track) {
   const items = rewardOf(n, track);
   if (!items) return 'none';
   if (rec.claimed[track].includes(n)) return 'claimed';
-  const reached = track === 'paid' ? rec.owned && n <= rec.level : n <= rec.days;
+  const reached = track === 'paid' ? rec.owned && (n <= rec.level || earlyReward(items)) : n <= rec.days;
   if (!reached) return 'locked';
   return rewardLaunched(items, rec) ? 'ready' : 'soon';
 }

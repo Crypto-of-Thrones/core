@@ -11,6 +11,7 @@ import { TRAINING } from './data.js';
 import { WHEEL, wedgeAt, LOGIN, FIRSTS, dropItems, WHEEL_ALL_MAX } from './claims.js';
 import { chestPick } from './tasks.js';
 import { taxOf } from './marketrules.js';
+export { MARKET_TAX10_FROM } from './marketrules.js';
 import { LADDER_RULES as LADDER, tierOf, tierItems, spendGated } from './ladderrules.js';
 import { LOTTERY, DRAW_KIND, drawAt, drawId, drawUniforms, drawWinners, sealedEntries } from './lottery.js';
 import { spreadOf, HUNT_MULT } from './huntsim.js';
@@ -32,6 +33,7 @@ import { createFight, fightResult, WORLD_BOSS } from './worldboss.js';
 import { VIGIL_DRAW, fightOutcome, vigilDrawId } from './raidrules.js';
 import { routeOf, rollVoyage } from './expedition.js';
 import { rollWorkers, rollCatch, FISH_DRAW } from './homestead.js';
+import { foalSex } from './horses.js';
 import { RECRUIT_GRANT } from './data.js';
 import { payAmount, usdCentsOf } from './grant.js';
 import { checkClaimRef } from './claimref.js';
@@ -295,6 +297,10 @@ export const RULES = {
     count: () => 2,
     check: (u, a, r) => (r.missing ? null : r.luck === a.luck && json(rollTreasure(r.luck, slice(u, 0, 2))) === json({ slot: r.slot, rarity: r.rarity })),
   },
+  horseBreed: {
+    count: () => 1,
+    check: (u, a, r) => (r.missing ? null : r.rarity === a.rarity && r.gen === a.gen && r.sex === foalSex(u[0])),
+  },
   voyageSend: {
     count: () => 1,
     check: (u, a, r) => {
@@ -341,7 +347,8 @@ export const RULES = {
       const rating = won ? from + JOUST.winRating : Math.max(JOUST.floor, from - JOUST.lossRating);
       if (a.win !== undefined && !(Number.isSafeInteger(a.win) && a.win >= 0 && a.win <= joustWinCap(ctx, draw, ctx?.info))) return false;
       if (a.win === undefined && !(draw && roundTime(draw.round, ctx?.info) < JOUST_WIN_FROM)) return false;
-      const win = a.win ?? milli(JOUST_BASE.winBefore);
+      if (a.foeWin !== undefined && !(a.match !== undefined && !a.free && a.win !== undefined && typeof a.foeEntry === 'string' && a.foeEntry !== '' && Number.isSafeInteger(a.foeWin) && a.foeWin >= 0 && a.foeWin <= joustWinCap(ctx, draw, ctx?.info))) return false;
+      const win = (a.win ?? milli(JOUST_BASE.winBefore)) + (a.foeWin ?? 0);
       const met = b
         ? { name: a.name, rating: a.rating, squad: squad.map((h) => [h.key, h.level]), ...joustGearRefs(squad.map((h) => h.gear || null)) }
         : { name: rival.name, rating: rival.rating, squad: rival.squad.map((h) => [h.key, h.level]), ...joustGearRefs(gearB) };
@@ -593,9 +600,9 @@ const creditsExactly = (ctx, want) => {
 const PAID = {
   hunt: (a, r, ctx) => creditsExactly(ctx, { chest: r.chest, war: r.war, warBal: r.roiVault || 0 }),
   away: (a, r, ctx) => creditsExactly(ctx, { chest: r.chest, war: r.war, warBal: r.roiVault || 0 }),
-  joust: (a, r, ctx) => (r.cancelled ? null : creditsExactly(ctx, { chest: r.pay || 0 })),
+  joust: (a, r, ctx) => creditsExactly(ctx, r.cancelled ? {} : { chest: r.pay || 0 }),
   duel: (a, r, ctx) => {
-    if (r.cancelled) return null;
+    if (r.cancelled) return creditsExactly(ctx, {});
     if (!r.draw) return creditsExactly(ctx, { chest: r.pay || 0 });
     const back = r.refund || 0;
     if (!back) return creditsExactly(ctx, {});
@@ -639,7 +646,7 @@ function heroBoxBeforePriceRef(act) {
 }
 
 const PRICES = {
-  summon: (a, d) => (d.from === 'card' ? 0 : milli(a.n * priced(a.mint === MINT_TIER.id && d.from !== 'war' ? mintCost() : summonCost(), d))),
+  summon: (a, d) => (d.from === 'card' ? 0 : milli(a.n * priced(a.mint === MINT_TIER.id && (d.from !== 'war' || a.war === 'new') ? mintCost() : summonCost(), d))),
   train: (a, d) => (a.free ? 0 : milli(priced(trainCost(a.stat), d))),
   joust: (a, d) => (a.queue === 'leave' ? undefined : a.free || a.match !== undefined ? 0 : milli(priced(JOUST.entry, d))),
   duel: (a, d) => (a.queue === 'join' ? milli(priced(DUEL.entry, d)) : a.match !== undefined ? 0 : undefined),
@@ -647,6 +654,9 @@ const PRICES = {
   heroBox: (a, d, act) => (a.price === undefined && heroBoxBeforePriceRef(act) ? a.boxes * milli(priced(HERO_BOX.price, d))
     : a.price === priced(HERO_BOX.price, d) ? a.boxes * milli(a.price) : NaN),
   squire: (a) => {
+    if (a.quote?.cot > 0 && !a.offer) {
+      return milli(a.promo ? (a.promo.full === a.quote.cot ? pagePromoPrice(a.quote.cot) : NaN) : a.quote.cot);
+    }
     if (!(a.usd?.usd > 0) || a.offer) return undefined;
     if (a.usd.price !== SQUIRE.usd) return NaN;
     const full = squireFullPrice(SQUIRE, 0, a.usd.usd);
@@ -784,16 +794,32 @@ export const STATIC_RULES = {
   huntLive: { check: (r) => (r.prev === undefined ? null : checkLive(r, PVP.share)) },
   marketSale: { check: (r) => (r.roiIn === undefined ? null : Number.isSafeInteger(r.roiIn) && Number.isSafeInteger(r.roiPass) && r.roiPass >= 0 && Number.isSafeInteger(r.price) && Number.isSafeInteger(r.tax) && r.tax >= 0 && r.roiIn === Math.min(r.price - r.tax, r.roiPass)) },
   marketBuy: {
-    check: (r, d) => {
+    check: (r, d, x) => {
       if (r.roiOut === undefined) return null;
       if (r.roiInv !== undefined) {
+        const ts = x?.ts;
         return d?.from === 'wallet' && Number.isSafeInteger(r.price) && r.price > 0 && r.roiInv === r.price
-          && r.roiTax === Math.round(taxOf(r.price / 1000) * 1000)
+          && Number.isSafeInteger(ts) && r.roiTax === Math.round(taxOf(r.price / 1000, ts) * 1000)
           && Number.isSafeInteger(r.roiPass) && r.roiPass >= 0 && r.roiOut === Math.max(0, Math.min(r.price - r.roiTax, r.roiPass));
       }
       return Number.isSafeInteger(r.roiOut) && r.roiOut > 0 && r.roiOut === r.price && (r.roiPass === undefined || (Number.isSafeInteger(r.roiPass) && r.roiPass >= 0));
     },
   },
+};
+
+const movesExactly = (d, want) => creditsExactly({ entry: { data: d || {} } }, want);
+
+export const STATIC_PAID = {
+  marketSale: (r, d, opts = {}) => Number.isSafeInteger(r.price) && Number.isSafeInteger(r.tax)
+    && (movesExactly(d, { chest: r.price - r.tax }) || (opts.mainnet !== true && movesExactly(d, { bot: r.price - r.tax }))),
+  marketBuy: (r, d, opts = {}) => {
+    if (!Number.isSafeInteger(r.price) || r.price <= 0) return false;
+    if (d?.chain) return d.from === 'wallet' && movesExactly(d, {});
+    const key = d?.from === 'chest' ? 'chest' : d?.from === 'wallet' && opts.mainnet !== true ? 'bot' : null;
+    return !!key && movesExactly(d, { [key]: -r.price });
+  },
+  huntLive: (r, d) => Number.isSafeInteger(r.chest) && Number.isSafeInteger(r.war)
+    && movesExactly(d, { chest: r.chest, war: r.war, warBal: r.roiVault || 0 }),
 };
 
 const isNum = (x) => Number.isSafeInteger(x);
@@ -1131,6 +1157,7 @@ export async function verifyEntry(e, entries, opts = {}) {
     steps.rule = 'ok';
     return done({ status: 'ok', steps });
   }
+  if (d.draw && Object.hasOwn(STATIC_PAID, e.kind)) return bad('draw', Number.isSafeInteger(d.draw.round) ? d.draw.round : undefined);
   if (!d.draw) {
     if (d.v === 2 && d.stage === 'reveal' && Object.hasOwn(RULES, e.kind)) return bad('draw');
     if (d.v === undefined && Number.isSafeInteger(d.round) && typeof d.randomness === 'string' && typeof d.signature === 'string') {
@@ -1142,8 +1169,9 @@ export async function verifyEntry(e, entries, opts = {}) {
     if (masked) return hidden();
     const hasStatic = Object.hasOwn(STATIC_RULES, e.kind) && d.v === 2;
     if (hasStatic && (!d.refs || typeof d.refs !== 'object')) return bad('rule');
-    const st = hasStatic ? STATIC_RULES[e.kind].check(d.refs, d) : null;
+    const st = hasStatic ? STATIC_RULES[e.kind].check(d.refs, d, e) : null;
     if (st === false) return bad('rule');
+    if (hasStatic && Object.hasOwn(STATIC_PAID, e.kind) && STATIC_PAID[e.kind](d.refs, d, opts) === false) return bad('amount');
     if (st === true) steps.rule = 'ok';
     if (st !== true && !actProven) {
       if (inertEntry(e, d, opts)) return done({ status: 'ok', steps: { ...steps, rule: 'none' }, why: 'no value moved' });

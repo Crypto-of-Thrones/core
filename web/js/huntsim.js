@@ -4,7 +4,7 @@ import { squireStep } from './squire.js';
 import { maxEnergyOf } from './hunt.js';
 import { stakeFarmPct, teamFactor } from './stakerules.js';
 import { isTrial, paidFirst, trialFarmMult } from './trial.js';
-import { restFed } from './homestead.js';
+import { restFedSec } from './homestead.js';
 
 export const HUNT_STEP_S = 10;
 export const AWAY_MAX_S = 7 * 86400;
@@ -25,7 +25,7 @@ export const LIVE_FLOOR = 1 - SETTLE_SPREAD;
 
 export const HUNT_MULT = 1;
 
-export function huntRun(heroes, sec, { paid = sec, share = 1, rate, rest, squire, broken, hit, onPay = null }) {
+export function huntRun(heroes, sec, { paid = sec, share = 1, rate, rest, squire, broken, hit, onPay = null, fed = null }) {
   const total = Math.max(0, Number(sec) || 0);
   const pace = Math.max(0, Math.min(1, share));
   let t = 0, earned = 0, trial = 0, kills = 0, huntSec = 0, fieldSec = 0, tick = 0;
@@ -35,7 +35,8 @@ export function huntRun(heroes, sec, { paid = sec, share = 1, rate, rest, squire
     let onField = 0;
     for (const h of field) {
       const drain = FARM.huntDrain / 60;
-      const on = Math.min(dt, h.energy / drain);
+      const cap = fed ? fed(h, dt) : dt;
+      const on = Math.min(cap, h.energy / drain);
       h.energy = Math.max(0, h.energy - on * drain);
       huntSec += on;
       onField = Math.max(onField, on);
@@ -53,7 +54,7 @@ export function huntRun(heroes, sec, { paid = sec, share = 1, rate, rest, squire
           if (hit(h, shieldWear(h, (pay * SHIELD_HIT.awayPerMin) / 60))) continue;
         }
       }
-      if (h.energy <= 0) h.status = 'rest';
+      if (h.energy <= 0 || cap < dt) h.status = 'rest';
     }
     fieldSec += onField;
     rest(dt);
@@ -126,10 +127,11 @@ export function hitShieldOf(h, points) {
   return true;
 }
 
-export function restStep(heroes, dt, { castle = null, autoSend = true, keep = false, hunger = false } = {}) {
+export function restStep(heroes, dt, { castle = null, autoSend = true, keep = false, hunger = false, now = 0, starve = hunger } = {}) {
   const slots = castle ? castle.slots : 0;
   let inside = 0;
   for (const x of heroes) {
+    if (x.status === 'work' && starve && hunger && !restFedSec(x, hunger, now, 1)) Object.assign(x, { status: 'rest', castle: false, hold: false });
     if (x.status !== 'rest') { x.castle = false; delete x.ate; continue; }
     if (x.castle) { if (inside < slots) inside++; else x.castle = false; }
   }
@@ -141,7 +143,8 @@ export function restStep(heroes, dt, { castle = null, autoSend = true, keep = fa
   for (const x of heroes) {
     if (x.status !== 'rest') continue;
     const max = maxEnergyOf(x);
-    if (restFed(x, hunger)) x.energy = Math.min(max, x.energy + (dt / 60) * restRateOf(x, castle, keep));
+    const fed = restFedSec(x, hunger, now, dt);
+    if (fed > 0) x.energy = Math.min(max, x.energy + (fed / 60) * restRateOf(x, castle, keep));
     if (x.energy >= max && !x.hold) {
       x.status = 'idle';
       x.castle = false;
@@ -155,7 +158,8 @@ export const squirePowerOf = (h) => heroPowerOf(h) - (isTrial(h) ? 1e6 : 0);
 const SQUIRE_RARITY_ORDER = Object.keys(RARITIES);
 export const squireRankOf = (h) => (isTrial(h) ? -1 : Math.max(0, SQUIRE_RARITY_ORDER.indexOf(HEROES[h.key]?.rarity)));
 
-export function squirePass(heroes, castle = null, restTired = true, mode = 'rarity') {
+export function squirePass(heroes, castle = null, restTired = true, mode = 'rarity', skip = null) {
+  if (skip) heroes = heroes.filter((x) => !skip(x));
   const bench = heroes.filter((x) => x.status === 'idle' && !brokenOf(x) && (restTired || x.energy >= maxEnergyOf(x) * SQUIRE.ready));
   return squireStep(heroes.filter((x) => x.status === 'work' || x.status === 'rest' || bench.includes(x)), {
     cap: FIELD_CAP, slots: castle ? castle.slots : 0, ready: SQUIRE.ready, maxEnergy: maxEnergyOf, maxShield: maxShieldOf, ...squireOrderOf(mode),

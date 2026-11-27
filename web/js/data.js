@@ -146,7 +146,7 @@ export const mintConvert = (h, at) => {
 export const mintDaysLeft = (now = Date.now()) => Math.max(0, Math.ceil((MINT_TIER.convertAt - now) / 86400e3));
 export const mintPrice = (price, h) => (isMintTier(h) && price > 0 ? roundCot(price * MINT_TIER.factor) : price);
 export const mintCost = () => cotPrice(SUMMON_COST * MINT_TIER.factor);
-export const summonPrice = (from) => (from === 'war' ? summonCost() : mintCost());
+export const summonPrice = (from, war) => (from === 'war' && war !== 'new' ? summonCost() : mintCost());
 export const SUMMON_BATCHES = [1, 5, 10, 15];
 
 export const FARM_BASE_DAYS = { common: 90, uncommon: 80, rare: 60, epic: 40, legendary: 30, mythic: 20 };
@@ -591,6 +591,8 @@ export const HORSES = {
 };
 export const HORSE_POWER = { atk: GEAR_POWER.atk, def: GEAR_POWER.def, spd: 1 };
 
+export const HORSE_BREED = { gen0Breeds: 5, hours: 24, feePct: 10, growHours: 24 };
+
 export const HOMESTEAD = {
   summon: { cost: 2500, batches: [1, 5, 10], start: 0, cap: 100 },
   crew: { cap: 100 },
@@ -653,7 +655,7 @@ export const HOMESTEAD = {
   batches: [1, 5, 10],
   batchesFree: 1,
   queue: { free: 1, pass: 5 },
-  food: { required: false, dayCap: 7 },
+  food: { required: false, dayCap: 7, barHours: 24, graceUntil: 0 },
 };
 
 export const DUNGEON = {
@@ -777,18 +779,19 @@ export const ECONOMY = {
       potion: { curve: [[5, 72000], [10.25, 173430], [20.3, 440673], [40.6, 1178050], [80, 3456000]], ticks: [5, 10, 20, 40, 80], log: true },
     },
   },
-  market: { burnPct: 6, treasuryPct: 6, buysPerDay: 0 },
+  market: { teamPct: 10, buysPerDay: 0 },
   dev: { coins: 500, kills: 500 },
 };
 
 export const MARKET = {
   rarities: ['legendary', 'mythic'],
-  tax: ECONOMY.market.burnPct + ECONOMY.market.treasuryPct,
+  tax: ECONOMY.market.teamPct,
   maxListings: 20,
   rosterMax: 60,
   minPrice: 0.5,
   maxPrice: 5,
   heroFloor: { epic: 150000, legendary: 500000, mythic: 1500000 },
+  horseFloor: 500,
   heroBase: { common: 6000, uncommon: 12000, rare: 25000, epic: 60000, legendary: 150000, mythic: 400000 },
   levelStep: 0.25,
   gearBase: { common: 1500, uncommon: 4000, rare: 10000, epic: 30000, legendary: 90000, mythic: 300000 },

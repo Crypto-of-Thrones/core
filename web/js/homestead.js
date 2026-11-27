@@ -341,15 +341,27 @@ export const hungerOn = (systemOn) => !!(HOMESTEAD.food.required && systemOn);
 
 export const fedToday = (r, heroId, now) => (r.meals.day === mealDay(now) ? r.meals.fed[heroId] || 0 : 0);
 
-export const restFed = (h, hunger) => !hunger || !!h.trial || h.ate === true;
+export const hungerBarMs = () => HOMESTEAD.food.barHours * 3600000;
+
+export const fedEnd = (h) => Math.max(Number(h?.fedUntil) || 0, Number(HOMESTEAD.food.graceUntil) || 0);
+
+export const hungerMsLeft = (h, now) => Math.max(0, fedEnd(h) - now);
+
+export const hungerLeft = (h, now) => Math.min(1, hungerMsLeft(h, now) / hungerBarMs());
+
+export const restFedSec = (h, hunger, now, dt) => (!hunger || h.trial ? dt : Math.max(0, Math.min(dt, hungerMsLeft(h, now) / 1000)));
+
+export const restFed = (h, hunger, now) => restFedSec(h, hunger, now, 1) > 0;
+
+export const starvingAt = (h, hunger, now) => !restFed(h, hunger, now);
 
 export function eatBlock(r, h, max, dish, now, cap, hunger = false) {
   if (!DISHES.includes(dish)) return 'dish';
   if (!(r.barn.goods[dish] > 0)) return 'none';
   if (h.trial) return 'trial';
+  if (hunger) return !['rest', 'idle'].includes(h.status) ? 'status' : hungerMsLeft(h, now) > hungerBarMs() - 60000 ? 'ate' : '';
   if (h.status !== 'rest') return 'status';
   if (!(h.energy < max)) return 'full';
-  if (hunger) return h.ate === true ? 'ate' : '';
   return fedToday(r, h.id, now) >= cap ? 'cap' : '';
 }
 
@@ -358,8 +370,9 @@ export const mealEnergy = (r, heroId, dish, now, cap, hunger = false) => (hunger
 export function eatDish(r, h, max, dish, now, cap, hunger = false) {
   if (!--r.barn.goods[dish]) delete r.barn.goods[dish];
   if (hunger) {
-    h.ate = true;
-    return { hero: h.id, dish, energy: 0, after: h.energy, ate: true };
+    h.fedUntil = now + hungerBarMs();
+    delete h.ate;
+    return { hero: h.id, dish, energy: 0, after: h.energy, ate: true, fedUntil: h.fedUntil };
   }
   const pts = mealEnergy(r, h.id, dish, now, cap);
   const day = mealDay(now);

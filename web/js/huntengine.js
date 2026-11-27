@@ -3,13 +3,14 @@ import { isTrial } from './trial.js';
 import { OIL_PAY } from './hunt.js';
 import { FIGHT_HOUR, FIGHT_DAILY } from './promos.js';
 import { REALM_LIVE } from './realmlive.js';
+import { restFedSec, starvingAt } from './homestead.js';
 import { huntSpan, ruleRateOf, restStep, squirePass, brokenOf, hitShieldOf, stakeMultOf, PACE_DEFAULT, LIVE_FLOOR, HUNT_MULT } from './huntsim.js';
 
 export const ENGINE_V = 1;
 
 export const FORGIVE_UNTIL = Date.UTC(2026, 10, 23, 3);
 
-export const HERO_FIELDS = ['id', 'key', 'level', 'energy', 'shield', 'status', 'castle', 'hold', 'pin', 'battery', 'since', 'trial', 'ate', 'mint'];
+export const HERO_FIELDS = ['id', 'key', 'level', 'energy', 'shield', 'status', 'castle', 'hold', 'pin', 'battery', 'since', 'trial', 'ate', 'mint', 'fedUntil'];
 
 export const FIGHT_Q = FIGHT_DAILY.step;
 
@@ -36,6 +37,7 @@ export function legInput(heroes, from, to, { live = false, paid, castle = -1, au
     squire: !!squire,
     squireRest: true,
     ...(squire && squireFarm ? { squireFarm: true } : {}),
+    ...(hunger ? { hungerHunt: true } : {}),
     oilUntil: live && Number.isFinite(oilUntil) ? oilUntil : 0,
     lots: (lots || []).filter((l) => l && l.pool === 'farm').map((l) => ({ pool: 'farm', amount: l.amount, at: l.at })),
     heroes: heroes.map((h) => mintConvert(heroSnap(h), from)),
@@ -57,7 +59,7 @@ export function legRules({ castles, squire, boosts, lots } = {}, hunger = false)
     keep: !!boosts?.keep,
     hunger: !!hunger,
     squire: (squire?.owned || 0) > 0 && squire.on !== false,
-    squireFarm: squire?.mode === 'farm',
+    squireFarm: (squire?.owned || 0) > 0 && squire.on !== false,
     oilUntil: Number.isFinite(boosts?.oil) ? boosts.oil : 0,
     lots: lots || [],
   };
@@ -108,6 +110,7 @@ export function runLeg(input, heroes = null, tap = null) {
     if (tap) tap(x, trial, h);
   } : null;
   const { keep, hunger, autoSend, lots } = input;
+  const starve = hunger && input.hungerHunt === true;
   const oilUntil = live ? input.oilUntil || 0 : 0;
   const oil = OIL_PAY / 1000;
   const farmDays = farmDaysOf(input);
@@ -126,10 +129,11 @@ export function runLeg(input, heroes = null, tap = null) {
       };
       return {
         ...(input.paid === 0 ? { paid: 0 } : {}), share: PACE_DEFAULT, rate: (h) => ruleRateOf(h, stakeNow() * castlePay) * (at < oilUntil ? oil : 1),
-        rest: (dt) => { restStep(part, dt, { castle, autoSend, keep, hunger }); at += dt * 1000; },
+        rest: (dt) => { restStep(part, dt, { castle, autoSend, keep, hunger, now: at, starve }); at += dt * 1000; },
+        ...(starve ? { fed: (h, dt) => restFedSec(h, true, at, dt) } : {}),
         squire: input.squire ? () => {
           const off = part.filter((h) => h.status !== 'work');
-          squirePass(part, castle, input.squireRest === true, input.squireFarm === true ? 'farm' : 'rarity');
+          squirePass(part, castle, input.squireRest === true, input.squireFarm === true ? 'farm' : 'rarity', starve ? (h) => starvingAt(h, true, at) : null);
           sent += off.filter((h) => h.status === 'work').length;
         } : null,
         broken: brokenOf, hit: hitShieldOf, onPay,

@@ -27,6 +27,16 @@ export function fuseBlock(hero) {
 
 export const mixedTiers = (heroes) => heroes.some((x) => isMintTier(x) !== isMintTier(heroes[0]));
 
+export function pickPool(free, picked = []) {
+  let lead = picked[0];
+  if (!lead) {
+    const mints = free.filter((x) => isMintTier(x)).length;
+    const enough = (x) => (isMintTier(x) ? mints : free.length - mints) >= FUSION.size;
+    lead = free.find(enough) || free[0];
+  }
+  return lead ? free.filter((x) => isMintTier(x) === isMintTier(lead)) : free;
+}
+
 const fmtInt = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 export function pickBlock(heroes) {

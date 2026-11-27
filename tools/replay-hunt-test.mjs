@@ -19,7 +19,8 @@ const test = async (name, fn) => { await fn(); n++; console.log('ok', name); };
 const HOUR = 3600e3;
 const T0 = 1_762_000_000_000 - (1_762_000_000_000 % HOUR);
 const keys = Object.keys(HEROES);
-function roster() {
+function roster(fed = false) {
+  if (fed) return roster().map((h) => ({ ...h, fedUntil: T0 + 2 * HOUR }));
   return Array.from({ length: 12 }, (_, i) => {
     const h = { id: `g${i}`, key: keys[(i * 5) % keys.length], level: 1 + (i % 6), battery: i % 4 === 0, hold: i === 7, castle: i === 3 };
     h.energy = Math.round(maxEnergyOf(h) * ((1 + (i % 4)) / 4));
@@ -47,7 +48,7 @@ function hours(legacy = false) {
   return h;
 }
 function hoursNow(oldSquire = false) {
-  const leg = (...a) => { const x = legInput(...a); if (oldSquire) delete x.squireRest; return x; };
+  const leg = (...a) => { const x = legInput(...a); delete x.hungerHunt; if (oldSquire) delete x.squireRest; return x; };
   const one = { v: ENGINE_V, legs: [leg(roster(), T0, T0 + HOUR, { live: true, ...RULES })] };
   const live = roster();
   const legA = leg(live, T0, T0 + 25 * 60e3, { live: true, ...RULES });
@@ -70,6 +71,20 @@ await test('golden hours replay to the frozen numbers', () => {
     away: replayHour(h.away),
   };
   for (const k of Object.keys(GOLDEN.hours)) assert.deepEqual(got[k], GOLDEN.hours[k], `golden hour ${k}`);
+});
+
+await test('CRY-766 hungerHunt: a hungry mercenary does not hunt; a fed one hunts as before', () => {
+  const rec = legInput(roster(), T0, T0 + HOUR, { live: true, ...RULES });
+  assert.equal(rec.hungerHunt, true, 'recorded with the food rule on');
+  assert.equal(legInput(roster(), T0, T0 + HOUR, { live: true, ...RULES, hunger: false }).hungerHunt, undefined, 'and only then');
+  const old = { ...rec };
+  delete old.hungerHunt;
+  const starved = replayHour({ v: ENGINE_V, legs: [rec] });
+  assert.equal(starved.gross, 0, 'nobody ate: only the Recruit (no Farm food) hunts');
+  assert.ok(starved.trial > 0);
+  assert.ok(replayHour({ v: ENGINE_V, legs: [old] }).gross > 0, 'the same leg before the rule pays');
+  const fed = (x) => ({ ...x, heroes: x.heroes.map((h) => ({ ...h, fedUntil: T0 + 2 * HOUR })) });
+  assert.deepEqual(replayHour({ v: ENGINE_V, legs: [fed(rec)] }), replayHour({ v: ENGINE_V, legs: [fed(old)] }));
 });
 
 await test('hours recorded before squireRest replay on the earlier Squire rule', () => {
@@ -124,18 +139,18 @@ await test('hours recorded before farmDays replay on the farm days they were pai
 });
 
 await test('runLeg on the live roster equals the replay of its snapshot, extra fields and all', () => {
-  const live = roster();
+  const live = roster(true);
   const input = legInput(live, T0, T0 + HOUR, { live: true, ...RULES });
   const onLive = runLeg(input, live);
   const replay = runLeg(input);
   assert.deepEqual(replay, onLive);
   assert.ok(onLive.earned > 0 && onLive.trial > 0, 'the roster earns, the Recruit too');
-  assert.deepEqual(input.heroes, roster().map(heroSnap));
+  assert.deepEqual(input.heroes, roster(true).map(heroSnap));
   assert.ok(Object.keys(input.heroes[0]).every((k) => HERO_FIELDS.includes(k)));
 });
 
 await test('the replay sets the realm factors of the leg and restores them', () => {
-  const input = legInput(roster(), T0, T0 + HOUR, { live: true, ...RULES });
+  const input = legInput(roster(true), T0, T0 + HOUR, { live: true, ...RULES });
   const base = runLeg(input).earned;
   const half = runLeg({ ...input, realm: { emission: 0.5, index: 1 } }).earned;
   assert.ok(Math.abs(half - base / 2) < 1e-6 * base, 'half the emission pays half');

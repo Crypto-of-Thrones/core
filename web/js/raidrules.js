@@ -22,7 +22,7 @@ export const RAID = {
   time: 110,
   arrive: 2.6,
   auto: false,
-  pool: rewardBase(336000),
+  pool: rewardBase(168000),
   fallback: 0.25,
   phases: [0.66, 0.33],
   radius: 1.3,

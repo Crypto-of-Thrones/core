@@ -167,6 +167,13 @@ export function wornBy(g, pieceId) {
   return null;
 }
 
+export function wornByTest(g) {
+  const wearer = new Map();
+  for (const id of Object.values(g?.equipped || {})) if (!wearer.has(id)) wearer.set(id, 'hero');
+  for (const [mid, slots] of Object.entries(g?.mercs || {})) for (const id of Object.values(slots || {})) if (!wearer.has(id)) wearer.set(id, mid);
+  return (pieceId) => (g && pieceId ? wearer.get(pieceId) ?? null : null);
+}
+
 export const wearerGear = (g, mercId = null) => (mercId == null || mercId === 'hero' ? g : { items: g?.items || [], equipped: g?.mercs?.[mercId] || {} });
 
 export function equipPiece(g, pieceId, mercId = null) {
@@ -220,12 +227,13 @@ export function bestGearPlan(g, mercId = null) {
   const items = g?.items || [];
   const worn = wearerGear(g, mercId).equipped || {};
   const score = (p) => gearPower(gearDef(p));
+  const wearerOf = wornByTest(g);
   const out = [];
   for (const slot of ALL_SLOTS) {
     const cur = items.find((x) => x.id === worn[slot]) || null;
     let best = null;
     for (const p of items) {
-      if (p.slot !== slot || !gearDef(p) || wornBy(g, p.id) !== null) continue;
+      if (p.slot !== slot || !gearDef(p) || wearerOf(p.id) !== null) continue;
       const d = best ? score(p) - score(best) : 1;
       if (d > 0 || (d === 0 && ORDER.indexOf(p.rarity) > ORDER.indexOf(best.rarity))) best = p;
     }

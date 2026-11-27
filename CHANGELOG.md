@@ -6,6 +6,34 @@ All notable changes to this repository are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-11-27
+
+### Fixed
+
+- External report: `marketSale`, `marketBuy` and `huntLive` entries are held to the exact balance
+  change the game books (`STATIC_PAID`), not only to their `refs`; a mismatch is `bad` (`amount`).
+  Such an entry that carries a draw is `bad` (`draw`), never `wait`.
+- External report: with `--mainnet` a sale pays only the Hunt chest and a wallet purchase is
+  accepted only as an on-chain order; the test wallet pocket fails.
+- External report: a cancelled Duel or Joust reveal must move no balance at all.
+
+### Changed
+
+- The Market sale tax is checked by the entry's time: 10% in one team row from 2026-11-27 00:00
+  UTC (`MARKET_TAX10_FROM`), 12% in the previous two rows before it; an undated wallet purchase
+  fails.
+- A queue Joust match where both lords paid may pay the foe's win to the winner (`refs.foeWin`,
+  capped, with `refs.foeEntry`).
+- A Squire act with a live quote (`refs.quote`) is priced at `quote.cot`.
+- A Mint 1k summon paid from the new war balance is priced at the Mint 1k price.
+- Farm hunger: a hunt leg recorded with `hungerHunt` replays the food rule (one meal keeps a
+  mercenary fed for `barHours` hours, with an opening grace).
+- New `horseBreed` reveal rule (horse breeding is not open in the game).
+- Pass owners claim the boat reward at any level; the Pale Vigil reward seed is 168,000 base.
+- The on-chain program is unchanged from v0.1.4.
+
+Release notes: [docs/releases/v0.1.8.md](docs/releases/v0.1.8.md).
+
 ## [0.1.7] - 2026-11-26
 
 ### Fixed
